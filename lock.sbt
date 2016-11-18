@@ -19,11 +19,15 @@ dependencyOverrides in ThisBuild ++= Set(
   "org.mapdb" % "elsa" % "3.0.0-M5",
   "org.mapdb" % "mapdb" % "3.0.1",
   "org.scala-lang.modules" % "scala-parser-combinators_2.11" % "1.0.4",
-  "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.4",
+  "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.2",
+  "org.scala-sbt" % "test-interface" % "1.0",
+  "org.scalacheck" % "scalacheck_2.11" % "1.12.6",
+  "org.scalactic" % "scalactic_2.11" % "2.3.0-SNAP2",
+  "org.scalatest" % "scalatest_2.11" % "2.3.0-SNAP2",
   "org.scoverage" % "scalac-scoverage-plugin_2.11" % "1.1.1",
   "org.scoverage" % "scalac-scoverage-runtime_2.11" % "1.1.1",
   "org.slf4j" % "slf4j-api" % "1.7.21",
   "org.typelevel" % "macro-compat_2.11" % "1.1.1",
   "org.whispersystems" % "curve25519-java" % "0.3.0"
 )
-// LIBRARY_DEPENDENCIES_HASH 31ab47a7cc19e62d80a9d58b76538d8f9dcd37e9
+// LIBRARY_DEPENDENCIES_HASH 3c062d324670953e73f642e4ba7c02ec0d71f31c
