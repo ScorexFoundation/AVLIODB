@@ -8,7 +8,7 @@ scalaVersion := "2.11.8"
 
 libraryDependencies ++= Seq(
   "org.consensusresearch" %% "scrypto" % "1.2.0-RC3",
-  "io.iohk" &% "iodb" % "1.0-M1-SNAPSHOT"
+  "io.iohk" %% "iodb" % "1.0-M1-SNAPSHOT"
 )
 scalacOptions ++= Seq("-Xdisable-assertions")
 
