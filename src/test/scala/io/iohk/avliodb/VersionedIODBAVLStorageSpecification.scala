@@ -7,8 +7,10 @@ import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.crypto.authds.avltree.batch._
-import scorex.crypto.hash.Blake2b256Unsafe
-import scorex.utils.Random
+import scorex.crypto.encode.Base58
+import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe}
+
+import scala.util.{Failure, Try}
 
 class VersionedIODBAVLStorageSpecification extends PropSpec
   with PropertyChecks
@@ -22,38 +24,64 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
 
   implicit val hf = new Blake2b256Unsafe
-  val filename = "/tmp/avliodb"
+  val filename = "/tmp/iohk/avliodb"
+  new File(filename).mkdirs()
   new File(filename).listFiles().foreach(f => f.delete())
-  new File(filename).mkdir()
   val store = new LSMStore(new File(filename))
+  val storage = new VersionedIODBAVLStorage(store, KL, VL, LL)
+  require(storage.isEmpty)
+  val prover = new PersistentBatchAVLProver(new BatchAVLProver(None, KL, VL), storage)
+
+  property("Persistence AVL batch prover rollback") {
+    (0 until 100) foreach { i =>
+      prover.performOneModification(Insert(Blake2b256("k" + i).take(KL), Blake2b256("v" + i).take(VL)))
+    }
+    prover.generateProof
+
+    val digest = prover.rootHash
+    (100 until 200) foreach { i =>
+      prover.performOneModification(Insert(Blake2b256("k" + i).take(KL), Blake2b256("v" + i).take(VL)))
+    }
+    prover.generateProof
+    prover.rootHash should not equal digest
+
+    prover.rollback(digest)
+    prover.rootHash shouldEqual digest
+
+  }
 
   property("Persistence AVL batch prover") {
 
-    val storage = new VersionedIODBAVLStorage(store, KL, VL, LL)
-    require(storage.isEmpty)
-    val prover = new PersistentBatchAVLProver(new BatchAVLProver(None, KL, VL), storage)
     var digest = prover.rootHash
 
-    //    forAll(kvGen) { case (aKey, aValue) =>
-    val aKey = Random.randomBytes(KL)
-    val aValue = Random.randomBytes(VL)
-    val m = Insert(aKey, aValue)
-    prover.performOneModification(m)
-    val pf = prover.generateProof
-    val verifier = new BatchAVLVerifier(digest, pf, LL, KL, VL)
-    verifier.verifyOneModification(m)
-    prover.rootHash should not equal digest
-    prover.rootHash shouldEqual verifier.digest.get
+    def oneMod(aKey: Array[Byte], aValue: Array[Byte]): Unit = {
+      prover.rootHash shouldEqual digest
+      val m = Insert(aKey, aValue)
+      prover.performOneModification(m)
+      val pf = prover.generateProof.toArray
+      val verifier = new BatchAVLVerifier(digest, pf, LL, KL, VL)
+      verifier.verifyOneModification(m)
+      prover.rootHash should not equal digest
+      prover.rootHash shouldEqual verifier.digest.get
 
-    prover.rollback(digest).get
-    prover.rootHash shouldEqual digest
-    prover.performOneModification(m)
-    prover.generateProof
-    digest = prover.rootHash
-    //    }
-    //
-    //    val prover2 = new PersistentBatchAVLProver(new BatchAVLProver(None, KL, VL), storage)
-    //    prover2.rootHash shouldEqual prover.rootHash
+      prover.rollback(digest).get
+      prover.rootHash shouldEqual digest
+      prover.performOneModification(m)
+      prover.generateProof
+      digest = prover.rootHash
+    }
+
+    forAll(kvGen) { case (aKey, aValue) =>
+      Try {
+        oneMod(aKey, aValue)
+      }.recoverWith { case e =>
+        e.printStackTrace()
+        Failure(e)
+      }
+    }
+
+    val prover2 = new PersistentBatchAVLProver(new BatchAVLProver(None, KL, VL), storage)
+    Base58.encode(prover2.rootHash) shouldBe Base58.encode(prover.rootHash)
   }
 
 
