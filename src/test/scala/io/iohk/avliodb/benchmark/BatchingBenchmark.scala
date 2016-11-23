@@ -32,7 +32,7 @@ object BatchingBenchmark extends App {
   val mods = generateModifications()
 
   println(s"NumInserts = $numInserts")
-  println("Step, In-memory prover time, Persistent prover time")
+  println("Step, In-memory prover time, Persistent prover time, Rollback time")
 
   bench()
 
@@ -41,6 +41,8 @@ object BatchingBenchmark extends App {
     val persProver = new PersistentBatchAVLProver(new BatchAVLProver(None, KL, VL), storage)
 
     val Step = 2000
+    digest = persProver.rootHash
+    require(persProver.rootHash sameElements prover.rootHash)
     (0 until(NumMods, Step)) foreach { i =>
       oneStep(i, Step, i / 2, persProver, prover)
     }
@@ -53,17 +55,26 @@ object BatchingBenchmark extends App {
 
     val (persProverTime, _) = time {
       converted.foreach(c => persProver.performOneModification(c))
+      persProver.rootHash
       persProver.generateProof
     }
+    val (rollbackTime, _) = time {
+      persProver.rollback(digest).get
+      persProver.rootHash
+    }
+    converted.foreach(c => persProver.performOneModification(c))
+    persProver.generateProof
+
     val (proverTime, _) = time {
       converted.foreach(c => prover.performOneModification(c))
       prover.generateProof
+      prover.rootHash
     }
 
     digest = persProver.rootHash
     assert(prover.rootHash sameElements digest)
 
-    println(s"$toPrint,$proverTime,$persProverTime")
+    println(s"$toPrint,$proverTime,$persProverTime,$rollbackTime")
   }
 
   def time[R](block: => R): (Float, R) = {
