@@ -45,7 +45,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     prover.generateProof
     prover.rootHash should not equal digest
 
-    prover.rollback(digest)
+    prover.rollback(digest).get
     prover.rootHash shouldEqual digest
 
   }
