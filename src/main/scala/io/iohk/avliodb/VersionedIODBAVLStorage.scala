@@ -30,7 +30,6 @@ class VersionedIODBAVLStorage(store: Store,
       topNodePair +: (indexes ++ toInsert)
     } else indexes ++ toInsert
 
-    println(s"Put(${store.lastVersion + 1}: ${toUpdate.map(k => Base58.encode(k._1.data))}")
     //TODO toRemove list?
     store.update(store.lastVersion + 1, Seq(), toUpdate)
 
@@ -44,9 +43,6 @@ class VersionedIODBAVLStorage(store: Store,
 
     store.rollback(lastVersion)
     def recover(key: Array[Byte]): ProverNodes = {
-      if(store.get(ByteArrayWrapper(key)) == null) {
-        println(s"!! failed to get for key ${Base58.encode(key)}")
-      }
       val bytes = store.get(ByteArrayWrapper(key)).data
       bytes.head match {
         case 0 =>

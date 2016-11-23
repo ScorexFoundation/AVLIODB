@@ -15,10 +15,10 @@ class IODBStorageSpecification extends PropSpec
   with Matchers {
 
 
-  val filename = "/tmp/iohk/avliodbtest"
-  new File(filename).mkdirs()
-  new File(filename).listFiles().foreach(f => f.delete())
-  val store = new LSMStore(new File(filename))
+  val dirname = "/tmp/iohk/avliodbtest"
+  new File(dirname).mkdirs()
+  new File(dirname).listFiles().foreach(f => f.delete())
+  val store = new LSMStore(new File(dirname))
 
   property("IODB") {
     var version = store.lastVersion
