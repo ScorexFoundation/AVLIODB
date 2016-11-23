@@ -26,6 +26,7 @@ class VersionedIODBAVLStorage(store: Store,
         (versionsReverseKey(store.lastVersion + 1), ByteArrayWrapper(topNode.label)),
         (versionsKey(topNode.label), ByteArrayWrapper(Longs.toByteArray(store.lastVersion + 1))))
     val toInsert = serializedVisitedNodes(topNode)
+    println(s"Put(${store.lastVersion}) ${toInsert.map(k => Base58.encode(k._1.data))}")
     val toUpdate = if (!toInsert.map(_._1).contains(nodeKey(topNode))) {
       topNodePair +: (indexes ++ toInsert)
     } else indexes ++ toInsert
@@ -43,6 +44,9 @@ class VersionedIODBAVLStorage(store: Store,
 
     store.rollback(lastVersion)
     def recover(key: Array[Byte]): ProverNodes = {
+      if (store.get(ByteArrayWrapper(key)) == null) {
+        println("!!!" + Base58.encode(key))
+      }
       val bytes = store.get(ByteArrayWrapper(key)).data
       bytes.head match {
         case 0 =>
