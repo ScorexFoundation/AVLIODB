@@ -20,18 +20,17 @@ class VersionedIODBAVLStorage(store: Store,
   override def update(topNode: ProverNodes): Try[Unit] = Try {
     //TODO topNode is a special case?
     val topNodePair = (nodeKey(topNode), ByteArrayWrapper(toBytes(topNode)))
-    lastVersion = lastVersion + 1
     val indexes: Seq[(ByteArrayWrapper, ByteArrayWrapper)] =
       Seq((TopNodeKey, nodeKey(topNode)),
-        (versionsReverseKey(lastVersion), ByteArrayWrapper(topNode.label)),
-        (versionsKey(topNode.label), ByteArrayWrapper(Longs.toByteArray(lastVersion))))
+        (versionsReverseKey(store.lastVersion + 1), ByteArrayWrapper(topNode.label)),
+        (versionsKey(topNode.label), ByteArrayWrapper(Longs.toByteArray(store.lastVersion + 1))))
     val toInsert = serializedVisitedNodes(topNode)
     val toUpdate = if (!toInsert.map(_._1).contains(nodeKey(topNode))) {
       topNodePair +: (indexes ++ toInsert)
     } else indexes ++ toInsert
 
-    //TODO to remove?
-    store.update(longVersion(topNode.label), Seq(), toUpdate)
+    //TODO toRemove list?
+    store.update(store.lastVersion + 1, Seq(), toUpdate)
 
   }.recoverWith { case e =>
     log.warn("Failed to update tree", e)
@@ -39,7 +38,7 @@ class VersionedIODBAVLStorage(store: Store,
   }
 
   override def rollback(version: Version): Try[ProverNodes] = Try {
-    lastVersion = versions(version)
+    val lastVersion = versions(version)
 
     store.rollback(lastVersion)
     def recover(key: Array[Byte]): ProverNodes = {
@@ -76,7 +75,6 @@ class VersionedIODBAVLStorage(store: Store,
 
 
   private def serializedVisitedNodes(node: ProverNodes): Seq[(ByteArrayWrapper, ByteArrayWrapper)] = {
-    //TODO visited or isNew?
     if (node.isNew) {
       val pair: (ByteArrayWrapper, ByteArrayWrapper) = (nodeKey(node), ByteArrayWrapper(toBytes(node)))
       node match {
@@ -92,11 +90,6 @@ class VersionedIODBAVLStorage(store: Store,
   //TODO label or key???
   private def nodeKey(node: ProverNodes): ByteArrayWrapper = ByteArrayWrapper(node.label)
 
-
-  //TODO remove when version will be Array[Byte]
-  private val InitV = Array.fill(labelSize)(0: Byte)
-  private var lastVersion = store.lastVersion
-
   private def versions(l: Array[Byte]): Long = Longs.fromByteArray(store.get(versionsKey(l)).data)
 
   private def versionsKey(l: Array[Byte]): ByteArrayWrapper =
@@ -106,10 +99,6 @@ class VersionedIODBAVLStorage(store: Store,
     ByteArrayWrapper(Blake2b256("Rev".getBytes ++ Longs.toByteArray(l)).take(labelSize))
 
   private def versionsReverse(l: Long): Array[Byte] = store.get(versionsReverseKey(l)).data
-
-  private def longVersion(b: Version): Long = {
-    lastVersion
-  }
 
   private def toBytes(node: ProverNodes): Array[Byte] = node match {
     case n: ProverNode => (0: Byte) +: n.balance +: (n.key ++ n.leftLabel ++ n.rightLabel)

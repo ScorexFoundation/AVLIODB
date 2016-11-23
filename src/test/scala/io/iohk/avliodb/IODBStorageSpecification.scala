@@ -3,15 +3,11 @@ package io.iohk.avliodb
 import java.io.File
 
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
-import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.crypto.authds.avltree.batch._
-import scorex.crypto.encode.Base58
-import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe}
+import scorex.crypto.hash.Blake2b256
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.{Failure, Try}
 
 class IODBStorageSpecification extends PropSpec
   with PropertyChecks
