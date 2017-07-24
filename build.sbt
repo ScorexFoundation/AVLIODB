@@ -7,8 +7,8 @@ version := "0.1.0"
 scalaVersion := "2.12.2"
 
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "3.+" % "test",
-  "org.scalacheck" %% "scalacheck" % "1.13.+" % "test",
+  "org.scalatest" %% "scalatest" % "3.0.1" % "test",
+  "org.scalacheck" %% "scalacheck" % "1.13.4" % "test",
   "org.scorexfoundation" %% "scrypto" % "1.2.2",
   "org.scorexfoundation" %% "iodb" % "0.3.1"
 )

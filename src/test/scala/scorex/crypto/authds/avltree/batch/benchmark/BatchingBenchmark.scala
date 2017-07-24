@@ -1,10 +1,9 @@
-package io.iohk.avliodb.benchmark
+package scorex.crypto.authds.avltree.batch.benchmark
 
 import java.io.File
 
-import io.iohk.avliodb.VersionedIODBAVLStorage
 import io.iohk.iodb.LSMStore
-import scorex.crypto.authds.avltree.batch._
+import scorex.crypto.authds.avltree.batch.{VersionedIODBAVLStorage, _}
 import scorex.crypto.hash.Blake2b256Unsafe
 import scorex.utils.Random
 
@@ -37,12 +36,12 @@ object BatchingBenchmark extends App {
   bench()
 
   def bench(): Unit = {
-    val prover = new BatchAVLProver(None, KL, VL)
-    val persProver = new PersistentBatchAVLProver(new BatchAVLProver(None, KL, VL), storage)
+    val prover = new BatchAVLProver(KL, Some(VL), None)
+    val persProver = new PersistentBatchAVLProver(new BatchAVLProver(KL, Some(VL), None), storage)
 
     val Step = 2000
-    digest = persProver.rootHash
-    require(persProver.rootHash sameElements prover.rootHash)
+    digest = persProver.digest
+    require(persProver.digest sameElements prover.digest)
     (0 until(NumMods, Step)) foreach { i =>
       oneStep(i, Step, i / 2, persProver, prover)
     }
@@ -54,25 +53,25 @@ object BatchingBenchmark extends App {
     val converted = mods.slice(i, i + step)
 
     val (persProverTime, _) = time {
-      converted.foreach(c => persProver.performOneModification(c))
-      persProver.rootHash
+      converted.foreach(c => persProver.performOneOperation(c))
+      persProver.digest
       persProver.generateProof
     }
     val (rollbackTime, _) = time {
       persProver.rollback(digest).get
-      persProver.rootHash
+      persProver.digest
     }
-    converted.foreach(c => persProver.performOneModification(c))
+    converted.foreach(c => persProver.performOneOperation(c))
     persProver.generateProof
 
     val (proverTime, _) = time {
-      converted.foreach(c => prover.performOneModification(c))
+      converted.foreach(c => prover.performOneOperation(c))
       prover.generateProof
-      prover.rootHash
+      prover.digest
     }
 
-    digest = persProver.rootHash
-    assert(prover.rootHash sameElements digest)
+    digest = persProver.digest
+    assert(prover.digest sameElements digest)
 
     println(s"$toPrint,$proverTime,$persProverTime,$rollbackTime")
   }

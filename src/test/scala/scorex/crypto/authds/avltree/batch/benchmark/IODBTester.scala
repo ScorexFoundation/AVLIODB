@@ -1,7 +1,8 @@
-package io.iohk.avliodb.benchmark
+package scorex.crypto.authds.avltree.batch.benchmark
 
 import java.io.File
 
+import com.google.common.primitives.Longs
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 import scorex.crypto.authds.avltree.batch._
 import scorex.utils.Random
@@ -19,7 +20,7 @@ object IODBTester extends App {
   new File(Dirname).mkdirs()
   new File(Dirname).listFiles().foreach(f => f.delete())
   val store = new LSMStore(new File(Dirname))
-  var version = store.lastVersion
+  var version = 0l
 
 
   val mods = generateModifications()
@@ -28,12 +29,12 @@ object IODBTester extends App {
     println(i)
     val mod: Seq[(ByteArrayWrapper, ByteArrayWrapper)] = mods.slice(i, i + Step)
     store.update(version + 1, Seq(), mod)
-    store.rollback(version)
+    store.rollback(ByteArrayWrapper(Longs.toByteArray(version)))
     store.update(version + 1, Seq(), mod)
-    version = store.lastVersion
+    version = version + 1
 
     mods.slice(0, i + Step).foreach { m =>
-      store.get(m._1).data
+      store(m._1).data
     }
   }
 

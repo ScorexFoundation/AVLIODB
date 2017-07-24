@@ -1,4 +1,4 @@
-package io.iohk.avliodb
+package scorex.crypto.authds.avltree.batch
 
 import java.io.File
 
@@ -6,7 +6,6 @@ import io.iohk.iodb.LSMStore
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.crypto.authds.avltree.batch._
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe}
 
@@ -30,45 +29,45 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   val store = new LSMStore(new File(dirname))
   val storage = new VersionedIODBAVLStorage(store, KL, VL, LL)
   require(storage.isEmpty)
-  val prover = new PersistentBatchAVLProver(new BatchAVLProver(None, KL, VL), storage)
+  val prover = new PersistentBatchAVLProver(new BatchAVLProver(KL, Some(VL), None), storage)
 
   property("Persistence AVL batch prover rollback") {
     (0 until 100) foreach { i =>
-      prover.performOneModification(Insert(Blake2b256("k" + i).take(KL), Blake2b256("v" + i).take(VL)))
+      prover.performOneOperation(Insert(Blake2b256("k" + i).take(KL), Blake2b256("v" + i).take(VL)))
     }
     prover.generateProof
 
-    val digest = prover.rootHash
+    val digest = prover.digest
     (100 until 200) foreach { i =>
-      prover.performOneModification(Insert(Blake2b256("k" + i).take(KL), Blake2b256("v" + i).take(VL)))
+      prover.performOneOperation(Insert(Blake2b256("k" + i).take(KL), Blake2b256("v" + i).take(VL)))
     }
     prover.generateProof
-    prover.rootHash should not equal digest
+    Base58.encode(prover.digest) should not equal Base58.encode(digest)
 
     prover.rollback(digest).get
-    prover.rootHash shouldEqual digest
+    Base58.encode(prover.digest) shouldEqual Base58.encode(digest)
 
   }
 
   property("Persistence AVL batch prover") {
 
-    var digest = prover.rootHash
+    var digest = prover.digest
 
     def oneMod(aKey: Array[Byte], aValue: Array[Byte]): Unit = {
-      prover.rootHash shouldEqual digest
+      prover.digest shouldEqual digest
       val m = Insert(aKey, aValue)
-      prover.performOneModification(m)
+      prover.performOneOperation(m)
       val pf = prover.generateProof.toArray
-      val verifier = new BatchAVLVerifier(digest, pf, LL, KL, VL)
-      verifier.verifyOneModification(m)
-      prover.rootHash should not equal digest
-      prover.rootHash shouldEqual verifier.digest.get
+      val verifier = new BatchAVLVerifier(digest, pf, KL, Some(VL))
+      verifier.performOneOperation(m)
+      Base58.encode(prover.digest) should not equal Base58.encode(digest)
+      Base58.encode(prover.digest) shouldEqual Base58.encode(verifier.digest.get)
 
       prover.rollback(digest).get
-      prover.rootHash shouldEqual digest
-      prover.performOneModification(m)
+      Base58.encode(prover.digest) shouldEqual Base58.encode(digest)
+      prover.performOneOperation(m)
       prover.generateProof
-      digest = prover.rootHash
+      digest = prover.digest
     }
 
     forAll(kvGen) { case (aKey, aValue) =>
@@ -80,8 +79,8 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       }
     }
 
-    val prover2 = new PersistentBatchAVLProver(new BatchAVLProver(None, KL, VL), storage)
-    Base58.encode(prover2.rootHash) shouldBe Base58.encode(prover.rootHash)
+    val prover2 = new PersistentBatchAVLProver(new BatchAVLProver(KL, Some(VL), None), storage)
+    Base58.encode(prover2.digest) shouldBe Base58.encode(prover.digest)
   }
 
 
