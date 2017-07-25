@@ -12,26 +12,26 @@ object IODBTester extends App {
   val KL = 32
   val VL = 8
   val LL = 32
-  val InitilaMods = 0
   val NumMods = 2000000
   val Step = 1000
-
 
   new File(Dirname).mkdirs()
   new File(Dirname).listFiles().foreach(f => f.delete())
   val store = new LSMStore(new File(Dirname))
-  var version = 0l
-
+  var currentVersion: Option[Long] = None
 
   val mods = generateModifications()
 
   (0 until(NumMods, Step)) foreach { i =>
     println(i)
     val mod: Seq[(ByteArrayWrapper, ByteArrayWrapper)] = mods.slice(i, i + Step)
-    store.update(version + 1, Seq(), mod)
-    store.rollback(ByteArrayWrapper(Longs.toByteArray(version)))
-    store.update(version + 1, Seq(), mod)
-    version = version + 1
+    val nextVersion = ByteArrayWrapper.fromLong(i)
+    store.update(nextVersion, Seq(), mod)
+    currentVersion.foreach(v => {
+      store.rollback(ByteArrayWrapper.fromLong(v))
+      store.update(nextVersion, Seq(), mod)
+    })
+    currentVersion = Some(i)
 
     mods.slice(0, i + Step).foreach { m =>
       store(m._1).data

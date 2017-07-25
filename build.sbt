@@ -9,7 +9,8 @@ scalaVersion := "2.12.2"
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "org.scalacheck" %% "scalacheck" % "1.13.4" % "test",
-  "org.scorexfoundation" %% "scrypto" % "1.2.2",
+  "ch.qos.logback" % "logback-classic" % "1.+" % "test",
+  "org.scorexfoundation" %% "scrypto" % "1.2.2" exclude("org.slf4j", "slf4j-api"),
   "org.scorexfoundation" %% "iodb" % "0.3.1"
 )
 scalacOptions ++= Seq("-Xdisable-assertions")
