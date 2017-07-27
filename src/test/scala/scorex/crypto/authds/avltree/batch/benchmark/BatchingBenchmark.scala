@@ -19,7 +19,7 @@ object BatchingBenchmark extends App {
   implicit val hf = new Blake2b256Unsafe
   new File(Dirname).mkdirs()
   new File(Dirname).listFiles().foreach(f => f.delete())
-  val store = new LSMStore(new File(Dirname))
+  val store = new LSMStore(new File(Dirname), keepVersions = 100)
   val storage = new VersionedIODBAVLStorage(store, KL, VL, LL)
   require(storage.isEmpty)
 
