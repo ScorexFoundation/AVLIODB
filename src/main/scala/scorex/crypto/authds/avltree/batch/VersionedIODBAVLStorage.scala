@@ -1,9 +1,8 @@
 package scorex.crypto.authds.avltree.batch
 
-import com.google.common.primitives.Longs
 import io.iohk.iodb.{ByteArrayWrapper, Store}
 import scorex.crypto.encode.Base58
-import scorex.crypto.hash.{Blake2b256, ThreadUnsafeHash}
+import scorex.crypto.hash.ThreadUnsafeHash
 import scorex.utils.ScryptoLogging
 
 import scala.util.{Failure, Try}
@@ -63,7 +62,7 @@ class VersionedIODBAVLStorage(store: Store,
 
     def height(n:ProverNodes, res: Int = 0): Int = n match {
       case n: InternalProverNode => Math.max(height(n.left, res + 1), height(n.right, res + 1))
-      case n: ProverLeaf => res
+      case _: ProverLeaf => res
     }
     top -> height(top)
   }.recoverWith { case e =>
