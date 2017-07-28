@@ -37,7 +37,7 @@ class VersionedIODBAVLStorage(store: Store,
   }
 
   override def rollback(version: Version): Try[(ProverNodes, Int)] = Try {
-    store.rollback(ByteArrayWrapper(version))
+
     def recover(key: Array[Byte]): ProverNodes = {
       val bytes = store(ByteArrayWrapper(key)).data
       bytes.head match {
@@ -58,12 +58,21 @@ class VersionedIODBAVLStorage(store: Store,
           l
       }
     }
-    val top = recover(store(TopNodeKey).data)
 
     def height(n:ProverNodes, res: Int = 0): Int = n match {
       case n: InternalProverNode => Math.max(height(n.left, res + 1), height(n.right, res + 1))
       case _: ProverLeaf => res
     }
+
+
+    val r0 = System.currentTimeMillis()
+    store.rollback(ByteArrayWrapper(version))
+   // println("iodb rollback " + (System.currentTimeMillis() - r0))
+
+    val r1 = System.currentTimeMillis()
+    val top = recover(store(TopNodeKey).data)
+    //println("recover " + (System.currentTimeMillis() - r1))
+
     top -> height(top)
   }.recoverWith { case e =>
     log.warn("Failed to recover tree", e)

@@ -47,6 +47,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     prover.rollback(digest).get
     Base58.encode(prover.digest) shouldEqual Base58.encode(digest)
 
+    prover.checkTree(true)
   }
 
   property("Persistence AVL batch prover") {
@@ -57,7 +58,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       prover.digest shouldEqual digest
       val m = Insert(aKey, aValue)
       prover.performOneOperation(m)
-      val pf = prover.generateProof.toArray
+      val pf = prover.generateProof
       val verifier = new BatchAVLVerifier(digest, pf, KL, Some(VL))
       verifier.performOneOperation(m)
       Base58.encode(prover.digest) should not equal Base58.encode(digest)
@@ -81,6 +82,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
     val prover2 = new PersistentBatchAVLProver(new BatchAVLProver(KL, Some(VL), None), storage)
     Base58.encode(prover2.digest) shouldBe Base58.encode(prover.digest)
+    prover2.checkTree(true)
   }
 
 

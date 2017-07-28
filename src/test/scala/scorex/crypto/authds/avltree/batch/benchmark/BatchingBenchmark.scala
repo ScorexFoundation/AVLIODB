@@ -2,7 +2,7 @@ package scorex.crypto.authds.avltree.batch.benchmark
 
 import java.io.File
 
-import io.iohk.iodb.LSMStore
+import io.iohk.iodb.{FileAccess, LSMStore}
 import scorex.crypto.authds.avltree.batch.{VersionedIODBAVLStorage, _}
 import scorex.crypto.hash.Blake2b256Unsafe
 import scorex.utils.Random
@@ -19,7 +19,7 @@ object BatchingBenchmark extends App {
   implicit val hf = new Blake2b256Unsafe
   new File(Dirname).mkdirs()
   new File(Dirname).listFiles().foreach(f => f.delete())
-  val store = new LSMStore(new File(Dirname), keepVersions = 100)
+  val store = new LSMStore(new File(Dirname), keepVersions = 10, fileAccess = FileAccess.MMAP)
   val storage = new VersionedIODBAVLStorage(store, KeyLength, ValueLength, LabelLength)
   require(storage.isEmpty)
 
@@ -31,7 +31,7 @@ object BatchingBenchmark extends App {
   val mods = generateModifications()
 
   println(s"NumInserts = $numInserts")
-  println("Step, In-memory prover time, Persistent prover time, Rollback time")
+  println("Step, In-memory prover time(s.), Persistent prover time(s.), Rollback time(s.)")
 
   bench()
 
@@ -73,14 +73,14 @@ object BatchingBenchmark extends App {
     digest = persProver.digest
     assert(prover.digest sameElements digest)
 
-    println(s"$toPrint,$proverTime,$persProverTime,$rollbackTime")
+    println(s"$toPrint, $proverTime, $persProverTime, $rollbackTime")
   }
 
-  def time[R](block: => R): (Float, R) = {
-    val t0 = System.nanoTime()
+  def time[R](block: => R): (Double, R) = {
+    val t0 = System.currentTimeMillis()
     val result = block // call-by-name
-    val t1 = System.nanoTime()
-    ((t1 - t0).toFloat / 1000000, result)
+    val t1 = System.currentTimeMillis()
+    ((t1 - t0) / 1000.0, result)
   }
 
   def generateModifications(): Array[Modification] = {
