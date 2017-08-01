@@ -1,4 +1,4 @@
-organization := "io.iohk"
+organization := "org.scorexfoundation"
 
 name := "avl-iodb"
 
@@ -33,18 +33,3 @@ publishTo := {
 }
 
 pomIncludeRepository := { _ => false }
-
-
-/*pomExtra :=
-  <scm>
-    <url>git@github.com:ScorexProject/scrypto.git</url>
-    <connection>scm:git:git@github.com:ScorexProject/scrypto.git</connection>
-  </scm>
-    <developers>
-      <developer>
-        <id>kushti</id>
-        <name>Alexander Chepurnoy</name>
-        <url>http://chepurnoy.org/</url>
-      </developer>
-    </developers>
-*/
