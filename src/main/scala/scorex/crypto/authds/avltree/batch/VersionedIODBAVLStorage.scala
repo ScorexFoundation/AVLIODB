@@ -54,13 +54,10 @@ class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
       topNodePair +: (indexes ++ toInsert)
     } else indexes ++ toInsert
 
-
     println(toUpdate.size + " elements to insert into db")
 
-    val u0 = System.currentTimeMillis()
     //TODO toRemove list?
     store.update(digestWrapper, Seq(), toUpdate)
-    println("IODB update time " + (System.currentTimeMillis() - u0))
 
   }.recoverWith { case e =>
     log.warn("Failed to update tree", e)
@@ -68,10 +65,8 @@ class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
   }
 
   override def rollback(version: Version): Try[(ProverNodes, Int)] = Try {
-    val r0 = System.currentTimeMillis()
     store.rollback(ByteArrayWrapper(version))
 
-    val r1 = System.currentTimeMillis()
     val top = VersionedIODBAVLStorage.fetch(store.get(TopNodeKey).get.data)(hf, store, nodeParameters)
     val topHeight = Ints.fromByteArray(store.get(TopNodeHeight).get.data)
 
