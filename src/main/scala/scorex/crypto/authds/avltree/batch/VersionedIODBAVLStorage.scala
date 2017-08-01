@@ -70,12 +70,10 @@ class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
   override def rollback(version: Version): Try[(ProverNodes, Int)] = Try {
     val r0 = System.currentTimeMillis()
     store.rollback(ByteArrayWrapper(version))
-    println("iodb rollback " + (System.currentTimeMillis() - r0))
 
     val r1 = System.currentTimeMillis()
     val top = VersionedIODBAVLStorage.fetch(store.get(TopNodeKey).get.data)(hf, store, nodeParameters)
     val topHeight = Ints.fromByteArray(store.get(TopNodeHeight).get.data)
-    println("recover " + (System.currentTimeMillis() - r1))
 
     top -> topHeight //height(top)
   }.recoverWith { case e =>
