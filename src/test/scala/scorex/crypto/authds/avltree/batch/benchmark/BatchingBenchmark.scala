@@ -19,7 +19,7 @@ object BatchingBenchmark extends App {
   implicit val hf = new Blake2b256Unsafe
   new File(Dirname).mkdirs()
   new File(Dirname).listFiles().foreach(f => f.delete())
-  val store = new LSMStore(new File(Dirname), keepVersions = 10, fileAccess = FileAccess.MMAP)
+  val store = new LSMStore(new File(Dirname), keepVersions = 10, fileAccess = FileAccess.UNSAFE)
   val storage = new VersionedIODBAVLStorage(store, KeyLength, ValueLength, LabelLength)
   require(storage.isEmpty)
 
@@ -57,12 +57,17 @@ object BatchingBenchmark extends App {
       persProver.digest
       persProver.generateProof
     }
-    val (rollbackTime, _) = time {
-      persProver.rollback(digest).get
-      persProver.digest
+
+    if(scala.util.Random.nextInt(50) == 49) {
+      println("rollback: ")
+      val (rollbackTime, _) = time {
+        persProver.rollback(digest).get
+        persProver.digest
+      }
+      println("rollback time: " + rollbackTime)
+      converted.foreach(c => persProver.performOneOperation(c))
+      persProver.generateProof
     }
-    converted.foreach(c => persProver.performOneOperation(c))
-    persProver.generateProof
 
     val (proverTime, _) = time {
       converted.foreach(c => prover.performOneOperation(c))
@@ -73,7 +78,7 @@ object BatchingBenchmark extends App {
     digest = persProver.digest
     assert(prover.digest sameElements digest)
 
-    println(s"$toPrint, $proverTime, $persProverTime, $rollbackTime")
+    println(s"$toPrint, $proverTime, $persProverTime")//, $rollbackTime")
   }
 
   def time[R](block: => R): (Double, R) = {
@@ -98,6 +103,4 @@ object BatchingBenchmark extends App {
     }
     mods
   }
-
-
 }
