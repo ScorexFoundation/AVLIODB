@@ -1,6 +1,6 @@
 organization := "io.iohk"
 
-name := "AVLIODB"
+name := "avl-iodb"
 
 version := "0.2.0"
 

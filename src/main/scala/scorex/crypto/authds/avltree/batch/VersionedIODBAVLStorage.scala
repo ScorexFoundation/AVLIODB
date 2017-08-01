@@ -12,7 +12,7 @@ import scala.util.{Failure, Try}
 @specialized
 case class NodeParameters(keySize: Int, valueSize: Int, labelSize: Int)
 
-
+@specialized
 class ProxyInternalProverNode(protected var pk: AVLKey,
                               val lkey: AVLKey,
                               val rkey: AVLKey,
