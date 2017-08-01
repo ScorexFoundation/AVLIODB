@@ -31,16 +31,15 @@ class ProxyInternalProverNode(protected var pk: AVLKey,
     if (r == null) VersionedIODBAVLStorage.fetch(rkey) else r
 }
 
-class VersionedIODBAVLStorage(store: Store,
-                              keySize: Int = 26,
-                              valueSize: Int = 8,
-                              labelSize: Int = 32)
+class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
                              (implicit val hf: ThreadUnsafeHash) extends VersionedAVLStorage with ScryptoLogging {
+
+  private lazy val keySize = nodeParameters.keySize
+  private lazy val valueSize = nodeParameters.valueSize
+  private lazy val labelSize = nodeParameters.labelSize
 
   private val TopNodeKey: ByteArrayWrapper = ByteArrayWrapper(Array.fill(labelSize)(123: Byte))
   private val TopNodeHeight: ByteArrayWrapper = ByteArrayWrapper(Array.fill(labelSize)(124: Byte))
-
-  private lazy val nodeParameters = NodeParameters(keySize, valueSize, labelSize)
 
   override def update(prover: BatchAVLProver[_]): Try[Unit] = Try {
     //TODO topNode is a special case?
@@ -114,12 +113,10 @@ class VersionedIODBAVLStorage(store: Store,
 
 
 object VersionedIODBAVLStorage {
-  //todo: fix
-
 
   def fetch(key: AVLKey)(implicit hf: ThreadUnsafeHash,
                          store: Store,
-                         nodeParameters: NodeParameters) = {
+                         nodeParameters: NodeParameters): ProverNodes = {
     val bytes = store(ByteArrayWrapper(key)).data
     lazy val keySize = nodeParameters.keySize
     lazy val labelSize = nodeParameters.labelSize

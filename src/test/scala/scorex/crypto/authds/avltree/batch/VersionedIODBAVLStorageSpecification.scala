@@ -27,7 +27,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   new File(dirname).mkdirs()
   new File(dirname).listFiles().foreach(f => f.delete())
   val store = new LSMStore(new File(dirname))
-  val storage = new VersionedIODBAVLStorage(store, KL, VL, LL)
+  val storage = new VersionedIODBAVLStorage(store, NodeParameters(KL, VL, LL))
   require(storage.isEmpty)
   val prover = new PersistentBatchAVLProver(new BatchAVLProver(KL, Some(VL), None), storage)
 

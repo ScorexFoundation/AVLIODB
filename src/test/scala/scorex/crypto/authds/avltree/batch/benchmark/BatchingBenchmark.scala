@@ -20,7 +20,7 @@ object BatchingBenchmark extends App {
   new File(Dirname).mkdirs()
   new File(Dirname).listFiles().foreach(f => f.delete())
   val store = new LSMStore(new File(Dirname), keepVersions = 10, fileAccess = FileAccess.UNSAFE)
-  val storage = new VersionedIODBAVLStorage(store, KeyLength, ValueLength, LabelLength)
+  val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
   require(storage.isEmpty)
 
 
