@@ -25,7 +25,7 @@ class ProxyInternalProverNode(protected var pk: AVLKey,
 
   override def left: ProverNodes = {
     if (l == null) VersionedIODBAVLStorage.fetch(lkey) else l
-  }.ensuring(_ != null)
+  }
 
   override def right: ProverNodes =
     if (r == null) VersionedIODBAVLStorage.fetch(rkey) else r
