@@ -57,7 +57,7 @@ class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
     println(toUpdate.size + " elements to insert into db")
 
     //TODO toRemove list?
-    store.update(digestWrapper, Seq(), toUpdate)
+    store.update(digestWrapper, toRemove = Seq(), toUpdate)
 
   }.recoverWith { case e =>
     log.warn("Failed to update tree", e)
