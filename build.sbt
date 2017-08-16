@@ -2,15 +2,15 @@ organization := "org.scorexfoundation"
 
 name := "avl-iodb"
 
-version := "0.2.1"
+version := "0.2.2-SNAPSHOT"
 
-scalaVersion := "2.12.2"
+scalaVersion := "2.12.3"
 
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "org.scalacheck" %% "scalacheck" % "1.13.4" % "test",
   "ch.qos.logback" % "logback-classic" % "1.+" % "test",
-  "org.scorexfoundation" %% "scrypto" % "1.2.3" exclude("org.slf4j", "slf4j-api"),
+  "org.scorexfoundation" %% "scrypto" % "1.3.2-SNAPSHOT",
   "org.scorexfoundation" %% "iodb" % "0.3.1"
 )
 

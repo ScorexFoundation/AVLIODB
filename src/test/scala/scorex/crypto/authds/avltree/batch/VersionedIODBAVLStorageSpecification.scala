@@ -16,30 +16,35 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   with GeneratorDrivenPropertyChecks
   with Matchers {
 
-
-  val KL = 26
-  val VL = 8
-  val LL = 32
-
+  val KeyLength = 26
+  val ValueLength = 8
+  val LabelLength = 32
 
   implicit val hf = new Blake2b256Unsafe
+
   val dirname = "/tmp/iohk/avliodb"
   new File(dirname).mkdirs()
   new File(dirname).listFiles().foreach(f => f.delete())
   val store = new LSMStore(new File(dirname))
-  val storage = new VersionedIODBAVLStorage(store, NodeParameters(KL, VL, LL))
+  val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
   require(storage.isEmpty)
-  val prover = new PersistentBatchAVLProver(new BatchAVLProver(KL, Some(VL), None), storage)
+  val prover = new PersistentBatchAVLProver(new BatchAVLProver(KeyLength, Some(ValueLength), None), storage)
+
+  def kvGen: Gen[(Array[Byte], Array[Byte])] = for {
+    key <- Gen.listOfN(KeyLength, Arbitrary.arbitrary[Byte]).map(_.toArray) suchThat
+      (k => !(k sameElements Array.fill(KeyLength)(-1: Byte)) && !(k sameElements Array.fill(KeyLength)(0: Byte)) && k.length == KeyLength)
+    value <- Gen.listOfN(ValueLength, Arbitrary.arbitrary[Byte]).map(_.toArray)
+  } yield (key, value)
 
   property("Persistence AVL batch prover rollback") {
     (0 until 100) foreach { i =>
-      prover.performOneOperation(Insert(Blake2b256("k" + i).take(KL), Blake2b256("v" + i).take(VL)))
+      prover.performOneOperation(Insert(Blake2b256("k" + i).take(KeyLength), Blake2b256("v" + i).take(ValueLength)))
     }
     prover.generateProof
 
     val digest = prover.digest
     (100 until 200) foreach { i =>
-      prover.performOneOperation(Insert(Blake2b256("k" + i).take(KL), Blake2b256("v" + i).take(VL)))
+      prover.performOneOperation(Insert(Blake2b256("k" + i).take(KeyLength), Blake2b256("v" + i).take(ValueLength)))
     }
     prover.generateProof
     Base58.encode(prover.digest) should not equal Base58.encode(digest)
@@ -50,7 +55,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     prover.checkTree(true)
   }
 
-  property("Persistence AVL batch prover") {
+  property("Persistence AVL batch prover - basic test") {
 
     var digest = prover.digest
 
@@ -59,7 +64,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       val m = Insert(aKey, aValue)
       prover.performOneOperation(m)
       val pf = prover.generateProof
-      val verifier = new BatchAVLVerifier(digest, pf, KL, Some(VL))
+      val verifier = new BatchAVLVerifier(digest, pf, KeyLength, Some(ValueLength))
       verifier.performOneOperation(m)
       Base58.encode(prover.digest) should not equal Base58.encode(digest)
       Base58.encode(prover.digest) shouldEqual Base58.encode(verifier.digest.get)
@@ -80,16 +85,8 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       }
     }
 
-    val prover2 = new PersistentBatchAVLProver(new BatchAVLProver(KL, Some(VL), None), storage)
+    val prover2 = new PersistentBatchAVLProver(new BatchAVLProver(KeyLength, Some(ValueLength), None), storage)
     Base58.encode(prover2.digest) shouldBe Base58.encode(prover.digest)
-    prover2.checkTree(true)
+    prover2.checkTree(postProof = true)
   }
-
-
-  def kvGen: Gen[(Array[Byte], Array[Byte])] = for {
-    key <- Gen.listOfN(KL, Arbitrary.arbitrary[Byte]).map(_.toArray) suchThat
-      (k => !(k sameElements Array.fill(KL)(-1: Byte)) && !(k sameElements Array.fill(KL)(0: Byte)) && k.length == KL)
-    value <- Gen.listOfN(VL, Arbitrary.arbitrary[Byte]).map(_.toArray)
-  } yield (key, value)
-
 }
