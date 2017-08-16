@@ -34,8 +34,6 @@ class ProxyInternalProverNode(protected var pk: AVLKey,
 class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
                              (implicit val hf: ThreadUnsafeHash) extends VersionedAVLStorage with ScryptoLogging {
 
-  private lazy val keySize = nodeParameters.keySize
-  private lazy val valueSize = nodeParameters.valueSize
   private lazy val labelSize = nodeParameters.labelSize
 
   private val TopNodeKey: ByteArrayWrapper = ByteArrayWrapper(Array.fill(labelSize)(123: Byte))

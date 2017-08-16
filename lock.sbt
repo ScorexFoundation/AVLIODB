@@ -5,10 +5,11 @@ dependencyOverrides in ThisBuild ++= Set(
   "com.chuusai" % "shapeless_2.12" % "2.3.2",
   "com.google.guava" % "guava" % "19.0",
   "net.jpountz.lz4" % "lz4" % "1.3.0",
+  "org.bouncycastle" % "bcprov-jdk15on" % "1.57",
   "org.scorexfoundation" % "iodb_2.12" % "0.3.1",
-  "org.scorexfoundation" % "scrypto_2.12" % "1.2.3",
+  "org.scorexfoundation" % "scrypto_2.12" % "1.3.2-SNAPSHOT",
   "org.slf4j" % "slf4j-api" % "1.7.25",
   "org.typelevel" % "macro-compat_2.12" % "1.1.1",
   "org.whispersystems" % "curve25519-java" % "0.4.1"
 )
-// LIBRARY_DEPENDENCIES_HASH 2b733e66cd0870ac5d0804ac394838312cd9c1a9
+// LIBRARY_DEPENDENCIES_HASH 7a9815ba3c09f5c111e2b7f6d7dfccd13dd855e9
