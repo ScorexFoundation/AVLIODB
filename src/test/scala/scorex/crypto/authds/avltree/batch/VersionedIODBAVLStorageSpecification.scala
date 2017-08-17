@@ -32,7 +32,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   val store = new LSMStore(new File(dirname))
   val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
   require(storage.isEmpty)
-  val prover = new PersistentBatchAVLProver(new BatchAVLProver(KeyLength, Some(ValueLength), None), storage)
+  val prover = PersistentBatchAVLProver.create(new BatchAVLProver(KeyLength, Some(ValueLength), None), storage, true).get
 
 
   def kvGen: Gen[(Array[Byte], Array[Byte])] = for {
@@ -90,7 +90,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       }
     }
 
-    val prover2 = new PersistentBatchAVLProver(new BatchAVLProver(KeyLength, Some(ValueLength), None), storage)
+    val prover2 = PersistentBatchAVLProver.create(new BatchAVLProver(KeyLength, Some(ValueLength), None), storage).get
     Base58.encode(prover2.digest) shouldBe Base58.encode(prover.digest)
     prover2.checkTree(postProof = true)
   }
@@ -133,7 +133,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
           val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
           assert(storage.isEmpty)
 
-          val prover = new PersistentBatchAVLProver(p, storage)
+          val prover = PersistentBatchAVLProver.create(p, storage, true).get
 
           val keyPosition = scala.util.Random.nextInt(keys.length)
           val rndKey = keys(keyPosition)

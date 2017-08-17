@@ -68,7 +68,7 @@ class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
     val top = VersionedIODBAVLStorage.fetch(store.get(TopNodeKey).get.data)(hf, store, nodeParameters)
     val topHeight = Ints.fromByteArray(store.get(TopNodeHeight).get.data)
 
-    top -> topHeight //height(top)
+    top -> topHeight
   }.recoverWith { case e =>
     log.warn("Failed to recover tree", e)
     Failure(e)

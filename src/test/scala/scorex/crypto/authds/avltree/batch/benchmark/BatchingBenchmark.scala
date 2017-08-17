@@ -37,7 +37,10 @@ object BatchingBenchmark extends App {
 
   def bench(): Unit = {
     val prover = new BatchAVLProver(KeyLength, Some(ValueLength), None)
-    val persProver = new PersistentBatchAVLProver(new BatchAVLProver(KeyLength, Some(ValueLength), None), storage)
+    val persProver = PersistentBatchAVLProver.create(
+      new BatchAVLProver(KeyLength, Some(ValueLength), None),
+      storage,
+      true).get
 
     val Step = 2000
     digest = persProver.digest
