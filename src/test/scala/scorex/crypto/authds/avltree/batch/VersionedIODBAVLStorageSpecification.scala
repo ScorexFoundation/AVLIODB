@@ -12,7 +12,7 @@ import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe}
 import scorex.utils.Random
 
 import scala.reflect.io.Path
-import scala.util.{Failure, Try}
+import scala.util.Try
 
 class VersionedIODBAVLStorageSpecification extends PropSpec
   with PropertyChecks
@@ -77,7 +77,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       var digest = prover.digest
 
       def oneMod(aKey: Array[Byte], aValue: Array[Byte]): Unit = {
-        prover.digest shouldEqual digest
+        prover.digest shouldBe digest
 
         val m = Insert(aKey, aValue)
         prover.performOneOperation(m)
@@ -90,10 +90,16 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
         prover.rollback(digest).get
 
-        Base58.encode(prover.digest) shouldEqual Base58.encode(digest)
+        prover.checkTree(true)
+
+        prover.digest shouldBe digest
 
         prover.performOneOperation(m)
         val pf2 = prover.generateProof
+
+        pf shouldBe pf2
+
+        prover.checkTree(true)
 
         val verifier2 = new BatchAVLVerifier(digest, pf2, KeyLength, Some(ValueLength))
         verifier2.performOneOperation(m).isSuccess shouldBe true

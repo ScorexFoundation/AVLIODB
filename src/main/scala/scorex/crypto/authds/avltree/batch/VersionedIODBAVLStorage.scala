@@ -100,6 +100,7 @@ object VersionedIODBAVLStorage {
 
         val l = fetch(leftKey)
         val r = fetch(rightKey)
+
         val n = new InternalProverNode(key, l, r, balance)
         n.isNew = false
         n
