@@ -98,10 +98,7 @@ object VersionedIODBAVLStorage {
         val leftKey = bytes.slice(2 + keySize, 2 + keySize + labelSize)
         val rightKey = bytes.slice(2 + keySize + labelSize, 2 + keySize + (2 * labelSize))
 
-        val l = fetch(leftKey)
-        val r = fetch(rightKey)
-
-        val n = new InternalProverNode(key, l, r, balance)
+        val n = new ProxyInternalProverNode(key, leftKey, rightKey, balance)
         n.isNew = false
         n
       case 1 =>

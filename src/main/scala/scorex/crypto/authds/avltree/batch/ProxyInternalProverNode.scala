@@ -5,7 +5,6 @@ import scorex.crypto.authds.avltree.{AVLKey, Balance}
 import scorex.crypto.hash.ThreadUnsafeHash
 
 
-@specialized
 class ProxyInternalProverNode(protected var pk: AVLKey,
                               val lkey: AVLKey,
                               val rkey: AVLKey,
@@ -16,9 +15,14 @@ class ProxyInternalProverNode(protected var pk: AVLKey,
   extends InternalProverNode(k = pk, l = null, r = null, b = pb)(phf) {
 
   override def left: ProverNodes = {
-    if (l == null) VersionedIODBAVLStorage.fetch(lkey) else l
+    if (l == null) l = VersionedIODBAVLStorage.fetch(lkey)
+    l
   }
 
-  override def right: ProverNodes =
-    if (r == null) VersionedIODBAVLStorage.fetch(rkey) else r
+  override def right: ProverNodes = {
+    if (r == null) r = VersionedIODBAVLStorage.fetch(rkey)
+    r
+  }
 }
+
+
