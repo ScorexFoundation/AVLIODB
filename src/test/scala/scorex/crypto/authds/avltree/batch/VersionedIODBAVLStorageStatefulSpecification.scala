@@ -2,6 +2,7 @@ package scorex.crypto.authds.avltree.batch
 
 import com.google.common.primitives.Longs
 import io.iohk.iodb.LSMStore
+import org.scalacheck.Test.Parameters
 import org.scalacheck.commands.Commands
 import org.scalacheck.{Gen, Prop}
 import org.scalatest.PropSpec
@@ -11,13 +12,18 @@ import scorex.utils.{Random => RandomBytes}
 import scala.util.{Failure, Random, Success, Try}
 
 class VersionedIODBAVLStorageStatefulSpecification extends PropSpec {
+  val params = Parameters.default
+    .withMinSize(10)
+    .withMaxSize(50)
+    .withMinSuccessfulTests(15)
+
   property("IODBAVLStorage: rollback in stateful environment") {
-    IODBCommands.property().check
+    VersionedIODBAVLStorageStatefulCommands.property().check(params)
   }
 }
 
 
-object IODBCommands extends Commands {
+object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
   val KeyLength = 32
   val ValueLength = 8
@@ -69,6 +75,8 @@ object IODBCommands extends Commands {
 
     Gen.frequency(
       3 -> BackAndForthCheck(all),
+      3 -> BackAndForthTwoTimesCheck(all),
+      2 -> RollbackMoreThanOneVersionRandomly(all),
       2 -> ApplyAndRollback(all),
       1 -> BackAndForthDoubleCheck(all),
       1 -> SimpleCheck(all)
@@ -131,6 +139,64 @@ object IODBCommands extends Commands {
           val verifier = new BatchAVLVerifier(data.digest, data.proof, KeyLength, Some(ValueLength))
           ops.foreach(verifier.performOneOperation)
           data.consistent && verifier.digest.exists(_.sameElements(data.postDigest))
+        case Failure(_) =>
+          false
+      }
+      Prop.propBoolean(propBoolean)
+    }
+  }
+
+  case class BackAndForthTwoTimesCheck(ops: List[Operation]) extends Command {
+
+    case class ResultData(digest1: Array[Byte],
+                          digest2: Array[Byte],
+                          postDigest: Array[Byte],
+                          proof1: Array[Byte],
+                          proof2: Array[Byte])
+
+    override type Result = ResultData
+
+    override def run(sut: PersistentBatchAVLProver[Blake2b256Unsafe]): Result = {
+
+      val (firstBatch, secondBatch) = ops.splitAt(ops.length / 2)
+
+      val digest1 = sut.digest
+      firstBatch.foreach(sut.performOneOperation)
+      sut.checkTree(postProof = false)
+      val proof1 = sut.generateProof()
+      sut.checkTree(postProof = true)
+      val digest2 = sut.digest
+      secondBatch.foreach(sut.performOneOperation)
+      sut.checkTree(postProof = false)
+      val proof2 = sut.generateProof()
+      sut.checkTree(postProof = true)
+
+      sut.rollback(digest1).get
+      val updatedDigest = sut.digest
+      require(digest1.sameElements(updatedDigest))
+      ops.foreach(sut.performOneOperation)
+      sut.checkTree(postProof = false)
+      val sameProof = sut.generateProof()
+      sut.checkTree(postProof = true)
+      val updatedPostDigest = sut.digest
+
+      ResultData(digest1, digest2, updatedPostDigest, proof1, proof2)
+    }
+
+    override def nextState(state: Operations): Operations = state.include(ops)
+
+    override def preCondition(state: Operations): Boolean = true
+
+    override def postCondition(state: Operations, result: Try[Result]): Prop = {
+      val propBoolean = result match {
+        case Success(data) =>
+          val (firstBatch, secondBatch) = ops.splitAt(ops.length / 2)
+          val verifier1 = new BatchAVLVerifier(data.digest1, data.proof1, KeyLength, Some(ValueLength))
+          val verifier2 = new BatchAVLVerifier(data.digest2, data.proof2, KeyLength, Some(ValueLength))
+          firstBatch.foreach(verifier1.performOneOperation)
+          secondBatch.foreach(verifier2.performOneOperation)
+          verifier1.digest.exists(_.sameElements(data.digest2)) &&
+            verifier2.digest.exists(_.sameElements(data.postDigest))
         case Failure(_) =>
           false
       }
@@ -210,6 +276,43 @@ object IODBCommands extends Commands {
     override def preCondition(state: Operations): Boolean = true
 
     override def postCondition(state: Operations, result: Boolean): Prop = Prop.propBoolean(result)
+  }
+
+  case class RollbackMoreThanOneVersionRandomly(ops: List[Operation]) extends UnitCommand {
+
+    private val STEP_SIZE = 5
+
+    private def splitOpsIntoBatches: List[List[Operation]] = Range(0, ops.length, STEP_SIZE).map { i =>
+      ops.slice(i, i + STEP_SIZE)
+    }.toList
+
+    override def run(sut: PersistentBatchAVLProver[Blake2b256Unsafe]): Result = {
+      val splitOps = splitOpsIntoBatches
+
+      val digest = sut.digest
+      splitOps.foreach { operations =>
+        operations.foreach(sut.performOneOperation)
+        sut.checkTree(postProof = false)
+        sut.generateProof()
+        sut.checkTree(postProof = true)
+      }
+
+      sut.rollback(digest).get
+      val updatedDigest = sut.digest
+      require(digest.sameElements(updatedDigest))
+      splitOps.foreach { operations =>
+        operations.foreach(sut.performOneOperation)
+        sut.checkTree(postProof = false)
+        sut.generateProof()
+        sut.checkTree(postProof = true)
+      }
+    }
+
+    override def nextState(state: Operations): Operations = state.include(ops)
+
+    override def preCondition(state: Operations): Boolean = true
+
+    override def postCondition(state: Operations, result:Boolean): Prop = Prop.propBoolean(result)
   }
 
   case class SimpleCheck(ops: List[Operation]) extends Command {
