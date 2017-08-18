@@ -40,7 +40,7 @@ object BatchingBenchmark extends App {
     val persProver = PersistentBatchAVLProver.create(
       new BatchAVLProver(KeyLength, Some(ValueLength), None),
       storage,
-      true).get
+      paranoidChecks = true).get
 
     val Step = 2000
     digest = persProver.digest

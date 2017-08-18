@@ -2,34 +2,13 @@ package scorex.crypto.authds.avltree.batch
 
 import com.google.common.primitives.Ints
 import io.iohk.iodb.{ByteArrayWrapper, Store}
-import scorex.crypto.authds.avltree.{AVLKey, Balance}
+import scorex.crypto.authds.avltree.{AVLKey}
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.ThreadUnsafeHash
 import scorex.utils.ScryptoLogging
 
 import scala.util.{Failure, Try}
 
-@specialized
-case class NodeParameters(keySize: Int, valueSize: Int, labelSize: Int)
-
-@specialized
-class ProxyInternalProverNode(protected var pk: AVLKey,
-                              val lkey: AVLKey,
-                              val rkey: AVLKey,
-                              protected var pb: Balance = 0.toByte)
-                             (implicit val phf: ThreadUnsafeHash,
-                              store: Store,
-                              nodeParameters: NodeParameters)
-
-  extends InternalProverNode(k = pk, l = null, r = null, b = pb)(phf) {
-
-  override def left: ProverNodes = {
-    if (l == null) VersionedIODBAVLStorage.fetch(lkey) else l
-  }
-
-  override def right: ProverNodes =
-    if (r == null) VersionedIODBAVLStorage.fetch(rkey) else r
-}
 
 class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
                              (implicit val hf: ThreadUnsafeHash) extends VersionedAVLStorage with ScryptoLogging {
@@ -56,7 +35,6 @@ class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
 
     //TODO toRemove list?
     store.update(digestWrapper, toRemove = Seq(), toUpdate)
-
   }.recoverWith { case e =>
     log.warn("Failed to update tree", e)
     Failure(e)
