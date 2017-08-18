@@ -25,15 +25,23 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
   implicit val hf = new Blake2b256Unsafe
 
-  //todo: move to tests
-  val dirname = "/tmp/iohk/avliodb"
-  new File(dirname).mkdirs()
-  new File(dirname).listFiles().foreach(f => f.delete())
-  val store = new LSMStore(new File(dirname))
-  val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
-  require(storage.isEmpty)
-  val prover = PersistentBatchAVLProver.create(new BatchAVLProver(KeyLength, Some(ValueLength), None), storage, true).get
+  def withProver[A](action: (PersistentBatchAVLProver[Blake2b256Unsafe], VersionedIODBAVLStorage) => A): A ={
+    val dirname = "/tmp/iohk/avliodb-test-"+scala.util.Random.nextInt(Int.MaxValue)
+    val dir = new File(dirname)
+    Path(dir).deleteRecursively()
+    new File(dirname).mkdirs()
 
+    val store = new LSMStore(new File(dirname))
+    val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
+    require(storage.isEmpty)
+    val prover = PersistentBatchAVLProver.create(new BatchAVLProver(KeyLength, Some(ValueLength), None), storage, true).get
+
+    val res = action(prover, storage)
+
+    Path(dir).deleteRecursively()
+
+    res
+  }
 
   def kvGen: Gen[(Array[Byte], Array[Byte])] = for {
     key <- Gen.listOfN(KeyLength, Arbitrary.arbitrary[Byte]).map(_.toArray) suchThat
@@ -42,57 +50,66 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   } yield (key, value)
 
   property("Persistence AVL batch prover rollback") {
-    (0 until 100) foreach { i =>
-      prover.performOneOperation(Insert(Blake2b256("k" + i).take(KeyLength), Blake2b256("v" + i).take(ValueLength)))
-    }
-    prover.generateProof
+    withProver { (prover, _) =>
+      (0 until 100) foreach { i =>
+        prover.performOneOperation(Insert(Blake2b256("k" + i).take(KeyLength), Blake2b256("v" + i).take(ValueLength)))
+      }
+      prover.generateProof
 
-    val digest = prover.digest
-    (100 until 200) foreach { i =>
-      prover.performOneOperation(Insert(Blake2b256("k" + i).take(KeyLength), Blake2b256("v" + i).take(ValueLength)))
-    }
-    prover.generateProof
-    Base58.encode(prover.digest) should not equal Base58.encode(digest)
-
-    prover.rollback(digest).get
-    Base58.encode(prover.digest) shouldEqual Base58.encode(digest)
-
-    prover.checkTree(true)
-  }
-
-  property("Persistence AVL batch prover - basic test") {
-
-    var digest = prover.digest
-
-    def oneMod(aKey: Array[Byte], aValue: Array[Byte]): Unit = {
-      prover.digest shouldEqual digest
-      val m = Insert(aKey, aValue)
-      prover.performOneOperation(m)
-      val pf = prover.generateProof
-      val verifier = new BatchAVLVerifier(digest, pf, KeyLength, Some(ValueLength))
-      verifier.performOneOperation(m)
+      val digest = prover.digest
+      (100 until 200) foreach { i =>
+        prover.performOneOperation(Insert(Blake2b256("k" + i).take(KeyLength), Blake2b256("v" + i).take(ValueLength)))
+      }
+      prover.generateProof
       Base58.encode(prover.digest) should not equal Base58.encode(digest)
-      Base58.encode(prover.digest) shouldEqual Base58.encode(verifier.digest.get)
 
       prover.rollback(digest).get
       Base58.encode(prover.digest) shouldEqual Base58.encode(digest)
-      prover.performOneOperation(m)
-      prover.generateProof
-      digest = prover.digest
-    }
 
-    forAll(kvGen) { case (aKey, aValue) =>
-      Try {
-        oneMod(aKey, aValue)
-      }.recoverWith { case e =>
-        e.printStackTrace()
-        Failure(e)
+      prover.checkTree(true)
+    }
+  }
+
+
+  property("Persistence AVL batch prover - basic test") {
+
+    withProver { (prover, storage) =>
+      var digest = prover.digest
+
+      def oneMod(aKey: Array[Byte], aValue: Array[Byte]): Unit = {
+        prover.digest shouldEqual digest
+
+        val m = Insert(aKey, aValue)
+        prover.performOneOperation(m)
+        val pf = prover.generateProof
+
+        val verifier = new BatchAVLVerifier(digest, pf, KeyLength, Some(ValueLength))
+        verifier.performOneOperation(m).isSuccess shouldBe true
+        Base58.encode(prover.digest) should not equal Base58.encode(digest)
+        Base58.encode(prover.digest) shouldEqual Base58.encode(verifier.digest.get)
+
+        prover.rollback(digest).get
+
+        Base58.encode(prover.digest) shouldEqual Base58.encode(digest)
+
+        prover.performOneOperation(m)
+        val pf2 = prover.generateProof
+
+        val verifier2 = new BatchAVLVerifier(digest, pf2, KeyLength, Some(ValueLength))
+        verifier2.performOneOperation(m).isSuccess shouldBe true
+
+        digest = prover.digest
       }
-    }
 
-    val prover2 = PersistentBatchAVLProver.create(new BatchAVLProver(KeyLength, Some(ValueLength), None), storage).get
-    Base58.encode(prover2.digest) shouldBe Base58.encode(prover.digest)
-    prover2.checkTree(postProof = true)
+      (1 to 100).foreach{_ =>
+        val (aKey, aValue) = kvGen.sample.get
+        oneMod(aKey, aValue)
+      }
+
+      val prover2 = PersistentBatchAVLProver.create(new BatchAVLProver(KeyLength, Some(ValueLength), None), storage).get
+      Base58.encode(prover2.digest) shouldBe Base58.encode(prover.digest)
+      prover2.checkTree(postProof = true)
+    }
   }
 
   property("remove single random element from a large set") {

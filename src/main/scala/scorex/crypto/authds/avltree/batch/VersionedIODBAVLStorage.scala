@@ -2,7 +2,7 @@ package scorex.crypto.authds.avltree.batch
 
 import com.google.common.primitives.Ints
 import io.iohk.iodb.{ByteArrayWrapper, Store}
-import scorex.crypto.authds.avltree.{AVLKey}
+import scorex.crypto.authds.avltree.AVLKey
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.ThreadUnsafeHash
 import scorex.utils.ScryptoLogging
@@ -97,7 +97,10 @@ object VersionedIODBAVLStorage {
         val key = bytes.slice(2, 2 + keySize)
         val leftKey = bytes.slice(2 + keySize, 2 + keySize + labelSize)
         val rightKey = bytes.slice(2 + keySize + labelSize, 2 + keySize + (2 * labelSize))
-        val n = new ProxyInternalProverNode(key, leftKey, rightKey, balance)
+
+        val l = fetch(leftKey)
+        val r = fetch(rightKey)
+        val n = new InternalProverNode(key, l, r, balance)
         n.isNew = false
         n
       case 1 =>
