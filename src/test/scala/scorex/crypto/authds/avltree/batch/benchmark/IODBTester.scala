@@ -1,10 +1,7 @@
 package scorex.crypto.authds.avltree.batch.benchmark
 
 import java.io.File
-
-import com.google.common.primitives.Longs
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
-import scorex.crypto.authds.avltree.batch._
 import scorex.utils.Random
 
 object IODBTester extends App {
@@ -38,7 +35,6 @@ object IODBTester extends App {
     }
   }
 
-
   def generateModifications(): Array[(ByteArrayWrapper,ByteArrayWrapper)] = {
     val mods = new Array[(ByteArrayWrapper,ByteArrayWrapper)](NumMods)
 
@@ -47,6 +43,4 @@ object IODBTester extends App {
     }
     mods
   }
-
-
 }
