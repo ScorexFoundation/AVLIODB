@@ -7,9 +7,9 @@ dependencyOverrides in ThisBuild ++= Set(
   "net.jpountz.lz4" % "lz4" % "1.3.0",
   "org.bouncycastle" % "bcprov-jdk15on" % "1.57",
   "org.scorexfoundation" % "iodb_2.12" % "0.3.1",
-  "org.scorexfoundation" % "scrypto_2.12" % "1.3.2",
+  "org.scorexfoundation" % "scrypto_2.12" % "1.3.3",
   "org.slf4j" % "slf4j-api" % "1.7.25",
   "org.typelevel" % "macro-compat_2.12" % "1.1.1",
   "org.whispersystems" % "curve25519-java" % "0.4.1"
 )
-// LIBRARY_DEPENDENCIES_HASH 6f6edde38b87bc66a1d5412a2e124345277a64ca
+// LIBRARY_DEPENDENCIES_HASH 049605a3bc8ed72e2afa966ced08b8e76e985b87

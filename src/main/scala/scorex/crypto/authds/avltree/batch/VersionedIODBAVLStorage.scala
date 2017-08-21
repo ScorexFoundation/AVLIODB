@@ -52,11 +52,7 @@ class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
     Failure(e)
   }
 
-  override def version: Version = store.lastVersionID.map(_.data).getOrElse(Array.emptyByteArray)
-
-  override def isEmpty: Boolean = {
-    store.lastVersionID.isEmpty
-  }
+  override def version: Option[Version] = store.lastVersionID.map(_.data)
 
   private def serializedVisitedNodes(node: ProverNodes): Seq[(ByteArrayWrapper, ByteArrayWrapper)] = {
     if (node.isNew) {
@@ -78,6 +74,8 @@ class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
     case n: InternalProverNode => (0: Byte) +: n.balance +: (n.key ++ n.left.label ++ n.right.label)
     case n: ProverLeaf => (1: Byte) +: (n.key ++ n.value ++ n.nextLeafKey)
   }
+
+  override def rollbackVersions: Iterable[Version] = store.rollbackVersions().map(_.data)
 }
 
 
