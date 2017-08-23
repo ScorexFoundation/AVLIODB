@@ -31,7 +31,7 @@ class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
       topNodePair +: (indexes ++ toInsert)
     } else indexes ++ toInsert
 
-    println(toUpdate.size + " elements to insert into db")
+    log.info(toUpdate.size + " elements to insert into db")
 
     //TODO toRemove list?
     store.update(digestWrapper, toRemove = Seq(), toUpdate)
