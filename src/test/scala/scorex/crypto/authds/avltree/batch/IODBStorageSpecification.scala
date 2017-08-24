@@ -1,6 +1,6 @@
 package scorex.crypto.authds.avltree.batch
 
-import java.io.File
+import java.nio.file.Files
 
 import com.google.common.primitives.Longs
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
@@ -9,19 +9,17 @@ import org.scalatest.{Matchers, PropSpec}
 import scorex.crypto.hash.Blake2b256
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
 
 class IODBStorageSpecification extends PropSpec
   with PropertyChecks
   with GeneratorDrivenPropertyChecks
   with Matchers {
 
-
-  val dirname = "/tmp/iohk/avliodbtest"
-  new File(dirname).mkdirs()
-  new File(dirname).listFiles().foreach(f => f.delete())
-  val store = new LSMStore(new File(dirname))
-
-  property("IODB") {
+  property("IODB with LSM") {
+    val dir = Files.createTempDirectory("iodb_lsm_" + Random.alphanumeric.take(10).mkString).toFile
+    dir.deleteOnExit()
+    val store = new LSMStore(dir)
     var version = store.lastVersionID.map(v => Longs.fromByteArray(v.data))
     val keys: ArrayBuffer[(ByteArrayWrapper, ByteArrayWrapper)] = ArrayBuffer()
     forAll { b: Array[Byte] =>
@@ -40,5 +38,4 @@ class IODBStorageSpecification extends PropSpec
 
     }
   }
-
 }
