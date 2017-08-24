@@ -10,9 +10,9 @@ object MemoryUsageBenchmark extends Bench.ForkedTime {
 
   private val keepVersions = 0
 
-  private val startSize = 5000
-  private val finishSize = 50000
-  private val step = 5000
+  private val startSize = 10000
+  private val finishSize = 100000
+  private val step = 10000
 
   val ops = Gen.range("operations in tree")(startSize, finishSize, step)
 

@@ -10,7 +10,7 @@ object PerformanceBenchmark extends Bench.ForkedTime with OperationsOps {
   private val max = 10000
   private val step = 2000
 
-  private val operationsSize = 5000
+  private val operationsSize = 50000000
   private val keepVersions = 0
 
   val sizes = Gen.range(s"$step operations from")(operationsSize + 1, operationsSize + max, step)
