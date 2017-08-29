@@ -9,6 +9,7 @@ import scorex.utils.ScryptoLogging
 
 import scala.util.{Failure, Try}
 
+import VersionedIODBAVLStorage.{InternalNodePrefix, LeafPrefix}
 
 class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
                              (implicit val hf: ThreadUnsafeHash) extends VersionedAVLStorage with ScryptoLogging {
@@ -71,15 +72,19 @@ class VersionedIODBAVLStorage(store: Store, nodeParameters: NodeParameters)
   private def nodeKey(node: ProverNodes): ByteArrayWrapper = ByteArrayWrapper(node.label)
 
   private def toBytes(node: ProverNodes): Array[Byte] = node match {
-    case n: InternalProverNode => (0: Byte) +: n.balance +: (n.key ++ n.left.label ++ n.right.label)
-    case n: ProverLeaf => (1: Byte) +: (n.key ++ n.value ++ n.nextLeafKey)
+    case n: InternalProverNode => InternalNodePrefix +: n.balance +: (n.key ++ n.left.label ++ n.right.label)
+    case n: ProverLeaf => LeafPrefix +: (n.key ++ n.value ++ n.nextLeafKey)
   }
 
   override def rollbackVersions: Iterable[Version] = store.rollbackVersions().map(_.data)
+
+  def leafsIterator() = store.getAll().filter{case (_, v) => v.data.head == LeafPrefix}
 }
 
 
 object VersionedIODBAVLStorage {
+  val InternalNodePrefix: Byte = 0: Byte
+  val LeafPrefix: Byte = 1: Byte
 
   def fetch(key: AVLKey)(implicit hf: ThreadUnsafeHash,
                          store: Store,
@@ -90,7 +95,7 @@ object VersionedIODBAVLStorage {
     lazy val valueSize = nodeParameters.valueSize
 
     bytes.head match {
-      case 0 =>
+      case InternalNodePrefix =>
         val balance = bytes.slice(1, 2).head
         val key = bytes.slice(2, 2 + keySize)
         val leftKey = bytes.slice(2 + keySize, 2 + keySize + labelSize)
@@ -99,7 +104,7 @@ object VersionedIODBAVLStorage {
         val n = new ProxyInternalProverNode(key, leftKey, rightKey, balance)
         n.isNew = false
         n
-      case 1 =>
+      case LeafPrefix =>
         val key = bytes.slice(1, 1 + keySize)
         val value = bytes.slice(1 + keySize, 1 + keySize + valueSize)
         val nextLeafKey = bytes.slice(1 + keySize + valueSize, 1 + (2 * keySize) + valueSize)
