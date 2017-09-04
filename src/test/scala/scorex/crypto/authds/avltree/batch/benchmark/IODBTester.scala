@@ -1,6 +1,7 @@
 package scorex.crypto.authds.avltree.batch.benchmark
 
 import java.io.File
+
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 import scorex.utils.Random
 
@@ -15,9 +16,8 @@ object IODBTester extends App {
   new File(Dirname).mkdirs()
   new File(Dirname).listFiles().foreach(f => f.delete())
   val store = new LSMStore(new File(Dirname))
-  var currentVersion: Option[Long] = None
-
   val mods = generateModifications()
+  var currentVersion: Option[Long] = None
 
   (0 until(NumMods, Step)) foreach { i =>
     println(i)
@@ -35,8 +35,8 @@ object IODBTester extends App {
     }
   }
 
-  def generateModifications(): Array[(ByteArrayWrapper,ByteArrayWrapper)] = {
-    val mods = new Array[(ByteArrayWrapper,ByteArrayWrapper)](NumMods)
+  def generateModifications(): Array[(ByteArrayWrapper, ByteArrayWrapper)] = {
+    val mods = new Array[(ByteArrayWrapper, ByteArrayWrapper)](NumMods)
 
     for (i <- 0 until NumMods) {
       mods(i) = (ByteArrayWrapper(Random.randomBytes(KL)), ByteArrayWrapper(Random.randomBytes(VL)))

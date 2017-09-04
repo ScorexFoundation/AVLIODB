@@ -26,18 +26,12 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
   implicit val hf = new Blake2b256Unsafe
 
-  private def getRandomTempDir: File = {
-    val dir = java.nio.file.Files.createTempDirectory("avliodb_test_" + Random.alphanumeric.take(15)).toFile
-    dir.deleteOnExit()
-    dir
-  }
-
   def withProver[A](action: (PersistentBatchAVLProver[Digest32, Blake2b256Unsafe],
     VersionedIODBAVLStorage[Digest32]) => A): A = withProver[A]()(action)
 
   def withProver[A](keepVersions: Int = 0)
                    (action: (PersistentBatchAVLProver[Digest32, Blake2b256Unsafe],
-                     VersionedIODBAVLStorage[Digest32]) => A): A ={
+                     VersionedIODBAVLStorage[Digest32]) => A): A = {
     val dir = getRandomTempDir
     val store = new LSMStore(dir, keepVersions = keepVersions)
     val storage = new VersionedIODBAVLStorage(store, NodeParameters(KL, VL, LL))
@@ -49,6 +43,12 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
     Path(dir).deleteRecursively()
     res
+  }
+
+  private def getRandomTempDir: File = {
+    val dir = java.nio.file.Files.createTempDirectory("avliodb_test_" + Random.alphanumeric.take(15)).toFile
+    dir.deleteOnExit()
+    dir
   }
 
   def kvGen: Gen[(ADKey, ADValue)] = for {
@@ -117,7 +117,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
         digest = prover.digest
       }
 
-      (1 to 100).foreach{_ =>
+      (1 to 100).foreach { _ =>
         val (aKey, aValue) = kvGen.sample.get
         oneMod(aKey, aValue)
       }
@@ -130,7 +130,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover - rollback version") {
-    withProver(10){ (prover, storage) =>
+    withProver(10) { (prover, storage) =>
       (0L until 50L).foreach { long =>
         val insert = Insert(ADKey @@ RandomBytes.randomBytes(32),
           ADValue @@ com.google.common.primitives.Longs.toByteArray(long))
@@ -153,7 +153,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
         val suffixBytes = hf(System.currentTimeMillis() + " : " + new String(RandomBytes.randomBytes(20))).take(4)
         val suffixInt = Ints.fromByteArray(suffixBytes)
 
-        val dirName = "/tmp/iohk/avliodb"+suffixInt
+        val dirName = "/tmp/iohk/avliodb" + suffixInt
 
         val dir = new File(dirName)
         dir.mkdirs().ensuring(_ == true)

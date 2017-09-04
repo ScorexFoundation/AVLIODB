@@ -18,6 +18,8 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
 
   private val TopNodeKey: ByteArrayWrapper = ByteArrayWrapper(Array.fill(labelSize)(123: Byte))
   private val TopNodeHeight: ByteArrayWrapper = ByteArrayWrapper(Array.fill(labelSize)(124: Byte))
+  private val DigestLength = 33
+  private val InitialVersion = ADDigest @@ Array.fill(DigestLength)(11: Byte)
 
   override def update(prover: BatchAVLProver[D, _]): Try[Unit] = Try {
     //TODO topNode is a special case?
@@ -53,13 +55,13 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
     Failure(e)
   }
 
-  private val DigestLength = 33
-
-  private val InitialVersion = ADDigest @@ Array.fill(DigestLength)(11: Byte)
+  override def isEmpty: Boolean = version sameElements InitialVersion
 
   override def version: ADDigest = store.lastVersionID.map(d => ADDigest @@ d.data).getOrElse(InitialVersion)
 
-  override def isEmpty: Boolean = version sameElements InitialVersion
+  def rollbackVersions: Iterable[ADDigest] = store.rollbackVersions().map(d => ADDigest @@ d.data)
+
+  def leafsIterator() = store.getAll().filter { case (_, v) => v.data.head == LeafPrefix }
 
   private def serializedVisitedNodes(node: ProverNodes[D]): Seq[(ByteArrayWrapper, ByteArrayWrapper)] = {
     if (node.isNew) {
@@ -81,10 +83,6 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
     case n: InternalProverNode[D] => InternalNodePrefix +: n.balance +: (n.key ++ n.left.label ++ n.right.label)
     case n: ProverLeaf[D] => LeafPrefix +: (n.key ++ n.value ++ n.nextLeafKey)
   }
-
-  def rollbackVersions: Iterable[ADDigest] = store.rollbackVersions().map(d => ADDigest @@ d.data)
-
-  def leafsIterator() = store.getAll().filter { case (_, v) => v.data.head == LeafPrefix }
 }
 
 

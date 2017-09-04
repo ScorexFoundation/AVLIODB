@@ -25,13 +25,9 @@ object BatchingBenchmark extends App {
   val store = new LSMStore(new File(Dirname), keepVersions = 10, fileAccess = FileAccess.UNSAFE)
   val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
   require(storage.isEmpty)
-
-
-  var digest: ADDigest = ADDigest @@ Array[Byte]()
-
-  var numInserts = 0
-
   val mods = generateModifications()
+  var digest: ADDigest = ADDigest @@ Array[Byte]()
+  var numInserts = 0
 
   println(s"NumInserts = $numInserts")
   println("Step, In-memory prover time(s.), Persistent prover time(s.), Rollback time(s.)")

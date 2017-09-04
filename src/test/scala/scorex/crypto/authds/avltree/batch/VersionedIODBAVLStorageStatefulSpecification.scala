@@ -26,31 +26,39 @@ class VersionedIODBAVLStorageStatefulSpecification extends PropSpec {
 
 object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
+  override type State = Operations
+  override type Sut = PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]
   val KeyLength = 32
   val ValueLength = 8
   val LabelLength = 32
   val KeepVersions = 1000
-
+  implicit val hf = new Blake2b256Unsafe
   private val MAXIMUM_GENERATED_OPERATIONS = 20
   private val MINIMUM_OPERATIONS_LENGTH = 10
-
   private val UPDATE_FRACTION = 2
   private val REMOVE_FRACTION = 4
-
-  implicit val hf = new Blake2b256Unsafe
-
-  case class Operations(operations: List[Operation] = List.empty[Operation]) {
-    def include(ops: List[Operation]): Operations = Operations(operations ++ ops)
-  }
-
-  override type State = Operations
-  override type Sut = PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]
 
   override def canCreateNewSut(newState: State,
                                initSuts: Traversable[State],
                                runningSuts: Traversable[Sut]): Boolean = true
 
   override def newSut(state: State): Sut = createStatefulProver
+
+  private def createStatefulProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe] = {
+    val store = new LSMStore(dir = randomTempDir, keySize = KeyLength, keepVersions = KeepVersions)
+    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, Some(ValueLength))
+    val storage = new VersionedIODBAVLStorage[Digest32](store, NodeParameters(KeyLength, ValueLength, LabelLength))
+    require(storage.isEmpty)
+    val persistentProver = PersistentBatchAVLProver.create(prover, storage, paranoidChecks = true).get
+    persistentProver
+  }
+
+  private def randomTempDir: java.io.File = {
+    val dir = java.nio.file.Files.createTempDirectory(Random.alphanumeric.take(15).mkString).toFile
+    dir.mkdirs()
+    dir.deleteOnExit()
+    dir
+  }
 
   override def destroySut(sut: Sut): Unit = ()
 
@@ -63,7 +71,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
     val keys = (0 until appendsCommandsLength).map { _ => ADKey @@ RandomBytes.randomBytes(KeyLength) }.toList
     val removedKeys = state.operations.filter(_.isInstanceOf[Remove]).map(_.key).distinct
-    val prevKeys = state.operations.map(_.key).distinct.filterNot(k1 => removedKeys.exists{k2 => k1.sameElements(k2)})
+    val prevKeys = state.operations.map(_.key).distinct.filterNot(k1 => removedKeys.exists { k2 => k1.sameElements(k2) })
     val uniqueKeys = keys.filterNot(prevKeys.contains).distinct
     val updateKeys = Random.shuffle(prevKeys).take(safeDivide(prevKeys.length, UPDATE_FRACTION))
     val removeKeys = Random.shuffle(prevKeys).take(safeDivide(prevKeys.length, REMOVE_FRACTION))
@@ -88,25 +96,11 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
   private def nextPositiveLong: Long = Random.nextInt(Int.MaxValue).toLong
 
-  private def createStatefulProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe] = {
-    val store = new LSMStore(dir = randomTempDir, keySize = KeyLength, keepVersions = KeepVersions)
-    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, Some(ValueLength))
-    val storage = new VersionedIODBAVLStorage[Digest32](store, NodeParameters(KeyLength, ValueLength, LabelLength))
-    require(storage.isEmpty)
-    val persistentProver = PersistentBatchAVLProver.create(prover, storage, paranoidChecks = true).get
-    persistentProver
-  }
-
-  private def randomTempDir: java.io.File = {
-    val dir = java.nio.file.Files.createTempDirectory(Random.alphanumeric.take(15).mkString).toFile
-    dir.mkdirs()
-    dir.deleteOnExit()
-    dir
+  case class Operations(operations: List[Operation] = List.empty[Operation]) {
+    def include(ops: List[Operation]): Operations = Operations(operations ++ ops)
   }
 
   case class BackAndForthCheck(ops: List[Operation]) extends Command {
-
-    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: ADProof, consistent: Boolean)
 
     override type Result = ResultData
 
@@ -145,15 +139,11 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       }
       Prop.propBoolean(propBoolean)
     }
+
+    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: ADProof, consistent: Boolean)
   }
 
   case class BackAndForthTwoTimesCheck(ops: List[Operation]) extends Command {
-
-    case class ResultData(digest1: ADDigest,
-                          digest2: ADDigest,
-                          postDigest: ADDigest,
-                          proof1: ADProof,
-                          proof2: ADProof)
 
     override type Result = ResultData
 
@@ -203,16 +193,15 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       }
       Prop.propBoolean(propBoolean)
     }
+
+    case class ResultData(digest1: ADDigest,
+                          digest2: ADDigest,
+                          postDigest: ADDigest,
+                          proof1: ADProof,
+                          proof2: ADProof)
   }
 
   case class BackAndForthDoubleCheck(ops: List[Operation]) extends Command {
-
-    case class ResultData(digest: ADDigest,
-                          postDigest: ADDigest,
-                          digest2: ADDigest,
-                          postDigest2: ADDigest,
-                          proof: ADProof,
-                          proof2: ADProof)
 
     override type Result = ResultData
 
@@ -256,11 +245,16 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       }
       Prop.propBoolean(propBoolean)
     }
+
+    case class ResultData(digest: ADDigest,
+                          postDigest: ADDigest,
+                          digest2: ADDigest,
+                          postDigest2: ADDigest,
+                          proof: ADProof,
+                          proof2: ADProof)
   }
 
   case class ApplyAndRollback(ops: List[Operation]) extends UnitCommand {
-
-    case class ResultData(digest: Array[Byte], postDigest: Array[Byte], proof: Array[Byte], consistent: Boolean)
 
     override def run(sut: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]): Unit = {
       val digest = sut.digest
@@ -277,15 +271,13 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
     override def preCondition(state: Operations): Boolean = true
 
     override def postCondition(state: Operations, result: Boolean): Prop = Prop.propBoolean(result)
+
+    case class ResultData(digest: Array[Byte], postDigest: Array[Byte], proof: Array[Byte], consistent: Boolean)
   }
 
   case class RollbackMoreThanOneVersionRandomly(ops: List[Operation]) extends UnitCommand {
 
     private val STEP_SIZE = 5
-
-    private def splitOpsIntoBatches: List[List[Operation]] = Range(0, ops.length, STEP_SIZE).map { i =>
-      ops.slice(i, i + STEP_SIZE)
-    }.toList
 
     override def run(sut: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]): Result = {
       val splitOps = splitOpsIntoBatches
@@ -309,16 +301,18 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       }
     }
 
+    private def splitOpsIntoBatches: List[List[Operation]] = Range(0, ops.length, STEP_SIZE).map { i =>
+      ops.slice(i, i + STEP_SIZE)
+    }.toList
+
     override def nextState(state: Operations): Operations = state.include(ops)
 
     override def preCondition(state: Operations): Boolean = true
 
-    override def postCondition(state: Operations, result:Boolean): Prop = Prop.propBoolean(result)
+    override def postCondition(state: Operations, result: Boolean): Prop = Prop.propBoolean(result)
   }
 
   case class SimpleCheck(ops: List[Operation]) extends Command {
-
-    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: ADProof)
 
     override type Result = ResultData
 
@@ -347,5 +341,8 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       }
       Prop.propBoolean(propBoolean)
     }
+
+    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: ADProof)
   }
+
 }
