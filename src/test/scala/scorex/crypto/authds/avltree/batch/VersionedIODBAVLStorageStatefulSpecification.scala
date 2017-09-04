@@ -6,7 +6,8 @@ import org.scalacheck.Test.Parameters
 import org.scalacheck.commands.Commands
 import org.scalacheck.{Gen, Prop}
 import org.scalatest.PropSpec
-import scorex.crypto.hash.Blake2b256Unsafe
+import scorex.crypto.authds.{ADDigest, ADKey, ADProof, ADValue}
+import scorex.crypto.hash.{Blake2b256Unsafe, Digest32}
 import scorex.utils.{Random => RandomBytes}
 
 import scala.util.{Failure, Random, Success, Try}
@@ -43,7 +44,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
   }
 
   override type State = Operations
-  override type Sut = PersistentBatchAVLProver[Blake2b256Unsafe]
+  override type Sut = PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]
 
   override def canCreateNewSut(newState: State,
                                initSuts: Traversable[State],
@@ -60,16 +61,16 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
   override def genCommand(state: State): Gen[Command] = {
     val appendsCommandsLength = Random.nextInt(MAXIMUM_GENERATED_OPERATIONS) + MINIMUM_OPERATIONS_LENGTH
 
-    val keys = (0 until appendsCommandsLength).map { _ => RandomBytes.randomBytes(KeyLength) }.toList
+    val keys = (0 until appendsCommandsLength).map { _ => ADKey @@ RandomBytes.randomBytes(KeyLength) }.toList
     val removedKeys = state.operations.filter(_.isInstanceOf[Remove]).map(_.key).distinct
     val prevKeys = state.operations.map(_.key).distinct.filterNot(k1 => removedKeys.exists{k2 => k1.sameElements(k2)})
     val uniqueKeys = keys.filterNot(prevKeys.contains).distinct
     val updateKeys = Random.shuffle(prevKeys).take(safeDivide(prevKeys.length, UPDATE_FRACTION))
     val removeKeys = Random.shuffle(prevKeys).take(safeDivide(prevKeys.length, REMOVE_FRACTION))
 
-    val appendCommands: List[Operation] = uniqueKeys.map { k => Insert(k, Longs.toByteArray(nextPositiveLong)) }
-    val updateCommands: List[Operation] = updateKeys.map { k => UpdateLongBy(k, nextPositiveLong) }
-    val removeCommands: List[Operation] = removeKeys.map { k => Remove(k) }
+    val appendCommands = uniqueKeys.map { k => Insert(k, ADValue @@ Longs.toByteArray(nextPositiveLong)) }
+    val updateCommands = updateKeys.map { k => UpdateLongBy(k, nextPositiveLong) }
+    val removeCommands = removeKeys.map { k => Remove(k) }
 
     val all = appendCommands ++ updateCommands ++ removeCommands
 
@@ -87,10 +88,10 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
   private def nextPositiveLong: Long = Random.nextInt(Int.MaxValue).toLong
 
-  private def createStatefulProver: PersistentBatchAVLProver[Blake2b256Unsafe] = {
+  private def createStatefulProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe] = {
     val store = new LSMStore(dir = randomTempDir, keySize = KeyLength, keepVersions = KeepVersions)
-    val prover = new BatchAVLProver(KeyLength, Some(ValueLength))
-    val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
+    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, Some(ValueLength))
+    val storage = new VersionedIODBAVLStorage[Digest32](store, NodeParameters(KeyLength, ValueLength, LabelLength))
     require(storage.isEmpty)
     val persistentProver = PersistentBatchAVLProver.create(prover, storage, paranoidChecks = true).get
     persistentProver
@@ -105,11 +106,11 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
   case class BackAndForthCheck(ops: List[Operation]) extends Command {
 
-    case class ResultData(digest: Array[Byte], postDigest: Array[Byte], proof: Array[Byte], consistent: Boolean)
+    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: ADProof, consistent: Boolean)
 
     override type Result = ResultData
 
-    override def run(sut: PersistentBatchAVLProver[Blake2b256Unsafe]): Result = {
+    override def run(sut: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]): Result = {
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
@@ -136,7 +137,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
       val propBoolean = result match {
         case Success(data) =>
-          val verifier = new BatchAVLVerifier(data.digest, data.proof, KeyLength, Some(ValueLength))
+          val verifier = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest, data.proof, KeyLength, Some(ValueLength))
           ops.foreach(verifier.performOneOperation)
           data.consistent && verifier.digest.exists(_.sameElements(data.postDigest))
         case Failure(_) =>
@@ -148,15 +149,15 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
   case class BackAndForthTwoTimesCheck(ops: List[Operation]) extends Command {
 
-    case class ResultData(digest1: Array[Byte],
-                          digest2: Array[Byte],
-                          postDigest: Array[Byte],
-                          proof1: Array[Byte],
-                          proof2: Array[Byte])
+    case class ResultData(digest1: ADDigest,
+                          digest2: ADDigest,
+                          postDigest: ADDigest,
+                          proof1: ADProof,
+                          proof2: ADProof)
 
     override type Result = ResultData
 
-    override def run(sut: PersistentBatchAVLProver[Blake2b256Unsafe]): Result = {
+    override def run(sut: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]): Result = {
 
       val (firstBatch, secondBatch) = ops.splitAt(ops.length / 2)
 
@@ -191,8 +192,8 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       val propBoolean = result match {
         case Success(data) =>
           val (firstBatch, secondBatch) = ops.splitAt(ops.length / 2)
-          val verifier1 = new BatchAVLVerifier(data.digest1, data.proof1, KeyLength, Some(ValueLength))
-          val verifier2 = new BatchAVLVerifier(data.digest2, data.proof2, KeyLength, Some(ValueLength))
+          val verifier1 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest1, data.proof1, KeyLength, Some(ValueLength))
+          val verifier2 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest2, data.proof2, KeyLength, Some(ValueLength))
           firstBatch.foreach(verifier1.performOneOperation)
           secondBatch.foreach(verifier2.performOneOperation)
           verifier1.digest.exists(_.sameElements(data.digest2)) &&
@@ -206,16 +207,16 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
   case class BackAndForthDoubleCheck(ops: List[Operation]) extends Command {
 
-    case class ResultData(digest: Array[Byte],
-                          postDigest: Array[Byte],
-                          digest2: Array[Byte],
-                          postDigest2: Array[Byte],
-                          proof: Array[Byte],
-                          proof2: Array[Byte])
+    case class ResultData(digest: ADDigest,
+                          postDigest: ADDigest,
+                          digest2: ADDigest,
+                          postDigest2: ADDigest,
+                          proof: ADProof,
+                          proof2: ADProof)
 
     override type Result = ResultData
 
-    override def run(sut: PersistentBatchAVLProver[Blake2b256Unsafe]): Result = {
+    override def run(sut: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]): Result = {
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
@@ -243,8 +244,8 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
       val propBoolean = result match {
         case Success(data) =>
-          val verifier1 = new BatchAVLVerifier(data.digest, data.proof, KeyLength, Some(ValueLength))
-          val verifier2 = new BatchAVLVerifier(data.digest2, data.proof2, KeyLength, Some(ValueLength))
+          val verifier1 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest, data.proof, KeyLength, Some(ValueLength))
+          val verifier2 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest2, data.proof2, KeyLength, Some(ValueLength))
           ops.foreach(verifier1.performOneOperation)
           ops.foreach(verifier2.performOneOperation)
           val verifiedFirstDataSet = verifier1.digest.exists(_.sameElements(data.postDigest))
@@ -261,7 +262,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
     case class ResultData(digest: Array[Byte], postDigest: Array[Byte], proof: Array[Byte], consistent: Boolean)
 
-    override def run(sut: PersistentBatchAVLProver[Blake2b256Unsafe]): Unit = {
+    override def run(sut: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]): Unit = {
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
@@ -286,7 +287,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       ops.slice(i, i + STEP_SIZE)
     }.toList
 
-    override def run(sut: PersistentBatchAVLProver[Blake2b256Unsafe]): Result = {
+    override def run(sut: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]): Result = {
       val splitOps = splitOpsIntoBatches
 
       val digest = sut.digest
@@ -317,11 +318,11 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
   case class SimpleCheck(ops: List[Operation]) extends Command {
 
-    case class ResultData(digest: Array[Byte], postDigest: Array[Byte], proof: Array[Byte])
+    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: ADProof)
 
     override type Result = ResultData
 
-    override def run(sut: PersistentBatchAVLProver[Blake2b256Unsafe]): Result = {
+    override def run(sut: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]): Result = {
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
@@ -338,7 +339,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
     override def postCondition(state: Operations, result: Try[Result]): Prop = {
       val propBoolean = result match {
         case Success(data) =>
-          val verifier = new BatchAVLVerifier(data.digest, data.proof, KeyLength, Some(ValueLength))
+          val verifier = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest, data.proof, KeyLength, Some(ValueLength))
           ops.foreach(verifier.performOneOperation)
           verifier.digest.exists(_.sameElements(data.postDigest))
         case Failure(_) =>
