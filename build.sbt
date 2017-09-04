@@ -12,8 +12,8 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "org.scalacheck" %% "scalacheck" % "1.13.4" % "test",
   "ch.qos.logback" % "logback-classic" % "1.+" % "test",
-  "org.scorexfoundation" %% "scrypto" % "1.3.3",
-  "org.scorexfoundation" %% "iodb" % "0.3.1",
+  "org.scorexfoundation" %% "scrypto" % "2.+",
+  "org.scorexfoundation" %% "iodb" % "0.+",
   "com.storm-enroute" %% "scalameter" % "0.8.2"
 )
 
