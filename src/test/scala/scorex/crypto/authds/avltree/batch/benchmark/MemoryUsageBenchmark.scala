@@ -6,7 +6,7 @@ import scorex.crypto.authds.avltree.batch.benchmark.common.PersistentProverIniti
 
 object MemoryUsageBenchmark extends Bench.ForkedTime {
 
-  val ops = Gen.range("operations in tree")(startSize, finishSize, step)
+  lazy val ops = Gen.range("operations in tree")(startSize, finishSize, step)
   val KL = 32
   val VL = 8
   val LL = 32

@@ -7,13 +7,13 @@ import scorex.crypto.authds.avltree.batch.benchmark.common.{OperationsOps, Persi
 
 object PerformanceBenchmark extends Bench.ForkedTime with OperationsOps {
 
-  val sizes = Gen.range(s"$step operations from")(operationsSize + 1, operationsSize + max, step)
-  val mods = for (ord <- sizes) yield ord until ord + step
+  lazy val sizes = Gen.range(s"$step operations from")(operationsSize + 1, operationsSize + max, step)
+  lazy val mods = for (ord <- sizes) yield ord until ord + step
   val KL = 32
   val VL = 8
   val LL = 32
   implicit val cfg = Config(KL, VL, LL)
-  val persProverWithLSM =
+  lazy val persProverWithLSM =
     PersistentProverInitializer.getPersistentProverWithLSMStore(keepVersions, operationsSize)
   private val max = 10000
   private val step = 2000
