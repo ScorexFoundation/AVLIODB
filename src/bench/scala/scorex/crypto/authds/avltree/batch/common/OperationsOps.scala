@@ -1,10 +1,10 @@
-package scorex.crypto.authds.avltree.batch.benchmark.common
+package scorex.crypto.authds.avltree.batch.common
 
 import com.google.common.primitives.Longs
-import scorex.crypto.authds.avltree.batch.benchmark.common.PersistentProverInitializer.Config
 import scorex.crypto.authds.avltree.batch.{Insert, Operation, Update}
 import scorex.crypto.authds.{ADKey, ADValue}
 import scorex.utils.Random
+import PersistentProverInitializer.Config
 
 trait OperationsOps {
 
