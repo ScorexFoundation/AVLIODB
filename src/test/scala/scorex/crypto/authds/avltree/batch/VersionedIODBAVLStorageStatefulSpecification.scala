@@ -272,7 +272,6 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
     override def postCondition(state: Operations, result: Boolean): Prop = Prop.propBoolean(result)
 
-    case class ResultData(digest: Array[Byte], postDigest: Array[Byte], proof: Array[Byte], consistent: Boolean)
   }
 
   case class RollbackMoreThanOneVersionRandomly(ops: List[Operation]) extends UnitCommand {
