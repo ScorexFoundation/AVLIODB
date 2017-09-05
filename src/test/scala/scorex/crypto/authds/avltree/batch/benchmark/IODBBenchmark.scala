@@ -5,7 +5,7 @@ import java.io.File
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 import scorex.utils.Random
 
-object IODBTester extends App {
+object IODBBenchmark extends App {
   val Dirname = "/tmp/iohk/iodbfailer"
   val KL = 32
   val VL = 8

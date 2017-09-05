@@ -19,6 +19,8 @@ libraryDependencies ++= Seq(
 
 testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework")
 
+testOptions in Test := Seq(Tests.Filter(t => !t.matches(".*Benchmark$")))
+
 parallelExecution in Test := false
 
 scalacOptions ++= Seq("-Xdisable-assertions")
