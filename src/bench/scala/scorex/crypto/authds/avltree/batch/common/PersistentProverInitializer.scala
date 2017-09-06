@@ -1,4 +1,4 @@
-package scorex.crypto.authds.avltree.batch.benchmark.common
+package scorex.crypto.authds.avltree.batch.common
 
 import com.google.common.primitives.Longs
 import io.iohk.iodb.{FileAccess, LSMStore}

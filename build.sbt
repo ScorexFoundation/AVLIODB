@@ -14,7 +14,7 @@ libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.+" % "test",
   "org.scorexfoundation" %% "scrypto" % "2.+",
   "org.scorexfoundation" %% "iodb" % "0.+",
-  "com.storm-enroute" %% "scalameter" % "0.8.2"
+  "com.storm-enroute" %% "scalameter" % "0.8.2" % "bench"
 )
 
 testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework")
@@ -55,3 +55,7 @@ pomExtra :=
         <url>http://chepurnoy.org/</url>
       </developer>
     </developers>
+
+lazy val Benchmark = config("bench") extend Test
+
+lazy val avliodb = (project in file(".")).configs(Benchmark).settings(inConfig(Benchmark)(Defaults.testSettings): _*)

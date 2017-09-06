@@ -1,10 +1,10 @@
-package scorex.crypto.authds.avltree.batch.benchmark
+package scorex.crypto.authds.avltree.batch
 
 import org.scalameter.api._
-import scorex.crypto.authds.avltree.batch.benchmark.common.PersistentProverInitializer
-import scorex.crypto.authds.avltree.batch.benchmark.common.PersistentProverInitializer.Config
+import scorex.crypto.authds.avltree.batch.common.PersistentProverInitializer
+import scorex.crypto.authds.avltree.batch.common.PersistentProverInitializer.Config
 
-object MemoryUsageBenchmark extends Bench.ForkedTime {
+object MemoryUsage extends Bench.ForkedTime {
 
   lazy val ops = Gen.range("operations in tree")(startSize, finishSize, step)
   val KL = 32

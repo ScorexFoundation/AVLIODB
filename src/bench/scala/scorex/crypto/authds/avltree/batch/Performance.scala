@@ -1,11 +1,11 @@
-package scorex.crypto.authds.avltree.batch.benchmark
+package scorex.crypto.authds.avltree.batch
 
 import org.scalameter.api._
-import scorex.crypto.authds.avltree.batch.benchmark.common.PersistentProverInitializer.Config
-import scorex.crypto.authds.avltree.batch.benchmark.common.{OperationsOps, PersistentProverInitializer}
+import scorex.crypto.authds.avltree.batch.common.{OperationsOps, PersistentProverInitializer}
+import scorex.crypto.authds.avltree.batch.common.PersistentProverInitializer.Config
 
 
-object PerformanceBenchmark extends Bench.ForkedTime with OperationsOps {
+object Performance extends Bench.ForkedTime with OperationsOps {
 
   lazy val sizes = Gen.range(s"$step operations from")(operationsSize + 1, operationsSize + max, step)
   lazy val mods = for (ord <- sizes) yield ord until ord + step
@@ -17,7 +17,7 @@ object PerformanceBenchmark extends Bench.ForkedTime with OperationsOps {
     PersistentProverInitializer.getPersistentProverWithLSMStore(keepVersions, operationsSize)
   private val max = 10000
   private val step = 2000
-  private val operationsSize = 50000000
+  private val operationsSize = 1000000
   private val keepVersions = 0
 
   performance of "AVLIODBBatchExecution" in {
