@@ -3,8 +3,9 @@ package scorex.crypto.authds.avltree.batch.benchmark
 import java.io.File
 
 import io.iohk.iodb.{FileAccess, LSMStore}
+import scorex.crypto.authds._
 import scorex.crypto.authds.avltree.batch.{VersionedIODBAVLStorage, _}
-import scorex.crypto.hash.Blake2b256Unsafe
+import scorex.crypto.hash.{Blake2b256Unsafe, Digest32}
 import scorex.utils.Random
 
 import scala.reflect.io.Path
@@ -24,13 +25,9 @@ object BatchingBenchmark extends App {
   val store = new LSMStore(new File(Dirname), keepVersions = 10, fileAccess = FileAccess.UNSAFE)
   val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
   require(storage.isEmpty)
-
-
-  var digest = Array[Byte]()
-
-  var numInserts = 0
-
   val mods = generateModifications()
+  var digest: ADDigest = ADDigest @@ Array[Byte]()
+  var numInserts = 0
 
   println(s"NumInserts = $numInserts")
   println("Step, In-memory prover time(s.), Persistent prover time(s.), Rollback time(s.)")
@@ -38,9 +35,9 @@ object BatchingBenchmark extends App {
   bench()
 
   def bench(): Unit = {
-    val prover = new BatchAVLProver(KeyLength, Some(ValueLength), None)
-    val persProver = PersistentBatchAVLProver.create(
-      new BatchAVLProver(KeyLength, Some(ValueLength), None),
+    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, Some(ValueLength), None)
+    val persProver = PersistentBatchAVLProver.create[Digest32, Blake2b256Unsafe](
+      new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, Some(ValueLength), None),
       storage,
       paranoidChecks = true).get
 
@@ -53,7 +50,9 @@ object BatchingBenchmark extends App {
   }
 
 
-  def oneStep(i: Int, step: Int, toPrint: Int, persProver: PersistentBatchAVLProver[_], prover: BatchAVLProver[_]): Unit = {
+  def oneStep(i: Int, step: Int, toPrint: Int, persProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe],
+              prover: BatchAVLProver[Digest32, Blake2b256Unsafe]): Unit = {
+
     System.gc()
     val converted = mods.slice(i, i + step)
 
@@ -63,7 +62,7 @@ object BatchingBenchmark extends App {
       persProver.generateProof
     }
 
-    if(scala.util.Random.nextInt(50) == 49) {
+    if (scala.util.Random.nextInt(50) == 49) {
       println("rollback: ")
       val (rollbackTime, _) = time {
         persProver.rollback(digest).get
@@ -83,7 +82,7 @@ object BatchingBenchmark extends App {
     digest = persProver.digest
     assert(prover.digest sameElements digest)
 
-    println(s"$toPrint, $proverTime, $persProverTime")//, $rollbackTime")
+    println(s"$toPrint, $proverTime, $persProverTime") //, $rollbackTime")
   }
 
   def time[R](block: => R): (Double, R) = {
@@ -99,11 +98,12 @@ object BatchingBenchmark extends App {
     for (i <- 0 until NumMods) {
       if (i == 0 || i < InitialMods || i % 2 == 0) {
         // with prob ~.5 insert a new one, with prob ~.5 update an existing one
-        mods(i) = Insert(Random.randomBytes(KeyLength), Random.randomBytes(8))
+        mods(i) = Insert(ADKey @@ Random.randomBytes(KeyLength), ADValue @@ Random.randomBytes(8))
         numInserts += 1
       } else {
         val j = Random.randomBytes(3)
-        mods(i) = Update(mods((j(0).toInt.abs + j(1).toInt.abs * 128 + j(2).toInt.abs * 128 * 128) % i).key, Random.randomBytes(8))
+        mods(i) = Update(mods((j(0).toInt.abs + j(1).toInt.abs * 128 + j(2).toInt.abs * 128 * 128) % i).key,
+          ADValue @@ Random.randomBytes(8))
       }
     }
     mods

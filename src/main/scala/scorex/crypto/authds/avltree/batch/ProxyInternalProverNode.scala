@@ -1,26 +1,26 @@
 package scorex.crypto.authds.avltree.batch
 
 import io.iohk.iodb.Store
-import scorex.crypto.authds.avltree.{AVLKey, Balance}
-import scorex.crypto.hash.ThreadUnsafeHash
+import scorex.crypto.authds.{ADKey, Balance}
+import scorex.crypto.hash.{Digest, ThreadUnsafeHash}
 
 
-class ProxyInternalProverNode(protected var pk: AVLKey,
-                              val lkey: AVLKey,
-                              val rkey: AVLKey,
-                              protected var pb: Balance = 0.toByte)
-                             (implicit val phf: ThreadUnsafeHash,
-                              store: Store,
-                              nodeParameters: NodeParameters)
+class ProxyInternalProverNode[D <: Digest](protected var pk: ADKey,
+                                           val lkey: ADKey,
+                                           val rkey: ADKey,
+                                           protected var pb: Balance = Balance @@ 0.toByte)
+                                          (implicit val phf: ThreadUnsafeHash[D],
+                                           store: Store,
+                                           nodeParameters: NodeParameters)
   extends InternalProverNode(k = pk, l = null, r = null, b = pb)(phf) {
 
-  override def left: ProverNodes = {
-    if (l == null) l = VersionedIODBAVLStorage.fetch(lkey)
+  override def left: ProverNodes[D] = {
+    if (l == null) l = VersionedIODBAVLStorage.fetch[D](lkey)
     l
   }
 
-  override def right: ProverNodes = {
-    if (r == null) r = VersionedIODBAVLStorage.fetch(rkey)
+  override def right: ProverNodes[D] = {
+    if (r == null) r = VersionedIODBAVLStorage.fetch[D](rkey)
     r
   }
 }

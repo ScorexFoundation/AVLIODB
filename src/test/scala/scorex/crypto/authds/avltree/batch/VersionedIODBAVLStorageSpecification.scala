@@ -7,8 +7,9 @@ import io.iohk.iodb.LSMStore
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
+import scorex.crypto.authds.{ADKey, ADValue}
 import scorex.crypto.encode.Base58
-import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe}
+import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe, Digest32}
 import scorex.utils.{Random => RandomBytes}
 
 import scala.reflect.io.Path
@@ -25,22 +26,18 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
   implicit val hf = new Blake2b256Unsafe
 
-  private def getRandomTempDir: File = {
-    val dir = java.nio.file.Files.createTempDirectory("avliodb_test_" + Random.alphanumeric.take(15)).toFile
-    dir.deleteOnExit()
-    dir
-  }
-
-  def withProver[A](action: (PersistentBatchAVLProver[Blake2b256Unsafe], VersionedIODBAVLStorage) => A): A =
-    withProver[A]()(action)
+  def withProver[A](action: (PersistentBatchAVLProver[Digest32, Blake2b256Unsafe],
+    VersionedIODBAVLStorage[Digest32]) => A): A = withProver[A]()(action)
 
   def withProver[A](keepVersions: Int = 0)
-                   (action: (PersistentBatchAVLProver[Blake2b256Unsafe], VersionedIODBAVLStorage) => A): A ={
+                   (action: (PersistentBatchAVLProver[Digest32, Blake2b256Unsafe],
+                     VersionedIODBAVLStorage[Digest32]) => A): A = {
     val dir = getRandomTempDir
     val store = new LSMStore(dir, keepVersions = keepVersions)
     val storage = new VersionedIODBAVLStorage(store, NodeParameters(KL, VL, LL))
     require(storage.isEmpty)
-    val Success(prover) = PersistentBatchAVLProver.create(new BatchAVLProver(KL, Some(VL)), storage, paranoidChecks = true)
+    val Success(prover) = PersistentBatchAVLProver.create[Digest32, Blake2b256Unsafe](
+      new BatchAVLProver[Digest32, Blake2b256Unsafe](KL, Some(VL)), storage, paranoidChecks = true)
 
     val res = action(prover, storage)
 
@@ -48,22 +45,30 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     res
   }
 
-  def kvGen: Gen[(Array[Byte], Array[Byte])] = for {
+  private def getRandomTempDir: File = {
+    val dir = java.nio.file.Files.createTempDirectory("avliodb_test_" + Random.alphanumeric.take(15)).toFile
+    dir.deleteOnExit()
+    dir
+  }
+
+  def kvGen: Gen[(ADKey, ADValue)] = for {
     key <- Gen.listOfN(KL, Arbitrary.arbitrary[Byte]).map(_.toArray) suchThat
       (k => !(k sameElements Array.fill(KL)(-1: Byte)) && !(k sameElements Array.fill(KL)(0: Byte)) && k.length == KL)
     value <- Gen.listOfN(VL, Arbitrary.arbitrary[Byte]).map(_.toArray)
-  } yield (key, value)
+  } yield (ADKey @@ key, ADValue @@ value)
 
   property("Persistence AVL batch prover - rollback") {
     withProver { (prover, _) =>
       (0 until 100) foreach { i =>
-        prover.performOneOperation(Insert(Blake2b256("k" + i).take(KL), Blake2b256("v" + i).take(VL)))
+        prover.performOneOperation(Insert(ADKey @@ Blake2b256("k" + i).take(KL),
+          ADValue @@ Blake2b256("v" + i).take(VL)))
       }
       prover.generateProof
 
       val digest = prover.digest
       (100 until 200) foreach { i =>
-        prover.performOneOperation(Insert(Blake2b256("k" + i).take(KL), Blake2b256("v" + i).take(VL)))
+        prover.performOneOperation(Insert(ADKey @@ Blake2b256("k" + i).take(KL),
+          ADValue @@ Blake2b256("v" + i).take(VL)))
       }
       prover.generateProof
       Base58.encode(prover.digest) should not equal Base58.encode(digest)
@@ -81,14 +86,14 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     withProver { (prover, storage) =>
       var digest = prover.digest
 
-      def oneMod(aKey: Array[Byte], aValue: Array[Byte]): Unit = {
+      def oneMod(aKey: ADKey, aValue: ADValue): Unit = {
         prover.digest shouldBe digest
 
         val m = Insert(aKey, aValue)
         prover.performOneOperation(m)
         val pf = prover.generateProof
 
-        val verifier = new BatchAVLVerifier(digest, pf, KL, Some(VL))
+        val verifier = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](digest, pf, KL, Some(VL))
         verifier.performOneOperation(m).isSuccess shouldBe true
         Base58.encode(prover.digest) should not equal Base58.encode(digest)
         Base58.encode(prover.digest) shouldEqual Base58.encode(verifier.digest.get)
@@ -106,27 +111,29 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
         prover.checkTree(true)
 
-        val verifier2 = new BatchAVLVerifier(digest, pf2, KL, Some(VL))
+        val verifier2 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](digest, pf2, KL, Some(VL))
         verifier2.performOneOperation(m).isSuccess shouldBe true
 
         digest = prover.digest
       }
 
-      (1 to 100).foreach{_ =>
+      (1 to 100).foreach { _ =>
         val (aKey, aValue) = kvGen.sample.get
         oneMod(aKey, aValue)
       }
 
-      val prover2 = PersistentBatchAVLProver.create(new BatchAVLProver(KL, Some(VL), None), storage).get
+      val prover2 = PersistentBatchAVLProver.create(new BatchAVLProver[Digest32, Blake2b256Unsafe](KL, Some(VL), None),
+        storage).get
       Base58.encode(prover2.digest) shouldBe Base58.encode(prover.digest)
       prover2.checkTree(postProof = true)
     }
   }
 
   property("Persistence AVL batch prover - rollback version") {
-    withProver(10){ (prover, storage) =>
+    withProver(10) { (prover, storage) =>
       (0L until 50L).foreach { long =>
-        val insert = Insert(RandomBytes.randomBytes(32), com.google.common.primitives.Longs.toByteArray(long))
+        val insert = Insert(ADKey @@ RandomBytes.randomBytes(32),
+          ADValue @@ com.google.common.primitives.Longs.toByteArray(long))
         prover.performOneOperation(insert)
         prover.generateProof()
         prover.digest
@@ -146,7 +153,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
         val suffixBytes = hf(System.currentTimeMillis() + " : " + new String(RandomBytes.randomBytes(20))).take(4)
         val suffixInt = Ints.fromByteArray(suffixBytes)
 
-        val dirName = "/tmp/iohk/avliodb"+suffixInt
+        val dirName = "/tmp/iohk/avliodb" + suffixInt
 
         val dir = new File(dirName)
         dir.mkdirs().ensuring(_ == true)
@@ -155,12 +162,12 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
         val t = Try {
 
-          var keys = IndexedSeq[Array[Byte]]()
-          val p = new BatchAVLProver(KL, Some(VL))
+          var keys = IndexedSeq[ADKey]()
+          val p = new BatchAVLProver[Digest32, Blake2b256Unsafe](KL, Some(VL))
 
           (1 to cnt) foreach { _ =>
-            val key = RandomBytes.randomBytes(KL)
-            val value = RandomBytes.randomBytes(VL)
+            val key = ADKey @@ RandomBytes.randomBytes(KL)
+            val value = ADValue @@ RandomBytes.randomBytes(VL)
 
             keys = key +: keys
 
