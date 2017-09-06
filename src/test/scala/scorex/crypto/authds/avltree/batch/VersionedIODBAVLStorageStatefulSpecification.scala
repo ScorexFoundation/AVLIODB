@@ -6,7 +6,7 @@ import org.scalacheck.Test.Parameters
 import org.scalacheck.commands.Commands
 import org.scalacheck.{Gen, Prop}
 import org.scalatest.PropSpec
-import scorex.crypto.authds.{ADDigest, ADKey, ADProof, ADValue}
+import scorex.crypto.authds._
 import scorex.crypto.hash.{Blake2b256Unsafe, Digest32}
 import scorex.utils.{Random => RandomBytes}
 
@@ -140,7 +140,8 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       Prop.propBoolean(propBoolean)
     }
 
-    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: ADProof, consistent: Boolean)
+    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: SerializedAdProof, consistent: Boolean)
+
   }
 
   case class BackAndForthTwoTimesCheck(ops: List[Operation]) extends Command {
@@ -197,8 +198,9 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
     case class ResultData(digest1: ADDigest,
                           digest2: ADDigest,
                           postDigest: ADDigest,
-                          proof1: ADProof,
-                          proof2: ADProof)
+                          proof1: SerializedAdProof,
+                          proof2: SerializedAdProof)
+
   }
 
   case class BackAndForthDoubleCheck(ops: List[Operation]) extends Command {
@@ -250,8 +252,9 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
                           postDigest: ADDigest,
                           digest2: ADDigest,
                           postDigest2: ADDigest,
-                          proof: ADProof,
-                          proof2: ADProof)
+                          proof: SerializedAdProof,
+                          proof2: SerializedAdProof)
+
   }
 
   case class ApplyAndRollback(ops: List[Operation]) extends UnitCommand {
@@ -341,7 +344,8 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       Prop.propBoolean(propBoolean)
     }
 
-    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: ADProof)
+    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: SerializedAdProof)
+
   }
 
 }
