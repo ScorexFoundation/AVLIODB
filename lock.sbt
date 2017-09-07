@@ -31,7 +31,7 @@ dependencyOverrides in ThisBuild ++= Set(
   "org.scala-lang.modules" % "scala-xml_2.12" % "1.0.5",
   "org.scala-tools.testing" % "test-interface" % "0.5",
   "org.scorexfoundation" % "iodb_2.12" % "0.3.1",
-  "org.scorexfoundation" % "scrypto_2.12" % "2.0.1-SNAPSHOT",
+  "org.scorexfoundation" % "scrypto_2.12" % "2.0.1",
   "org.slf4j" % "slf4j-api" % "1.7.25",
   "org.whispersystems" % "curve25519-java" % "0.4.1"
 )
