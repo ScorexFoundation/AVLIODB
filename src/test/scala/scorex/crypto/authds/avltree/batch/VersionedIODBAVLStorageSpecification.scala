@@ -1,55 +1,25 @@
 package scorex.crypto.authds.avltree.batch
 
-import java.io.File
-
-import com.google.common.primitives.Ints
-import io.iohk.iodb.LSMStore
+import io.iohk.iodb.Store
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
+import scorex.crypto.authds.avltree.batch.helpers.TestHelper
 import scorex.crypto.authds.{ADKey, ADValue}
-import scorex.crypto.encode.Base58
 import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe, Digest32}
 import scorex.utils.{Random => RandomBytes}
 
-import scala.reflect.io.Path
-import scala.util.{Random, Success, Try}
+import scala.util.Try
 
 class VersionedIODBAVLStorageSpecification extends PropSpec
   with PropertyChecks
   with GeneratorDrivenPropertyChecks
-  with Matchers {
+  with Matchers
+  with TestHelper {
 
-  val KL = 32
-  val VL = 8
-  val LL = 32
-
-  implicit val hf = new Blake2b256Unsafe
-
-  def withProver[A](action: (PersistentBatchAVLProver[Digest32, Blake2b256Unsafe],
-    VersionedIODBAVLStorage[Digest32]) => A): A = withProver[A]()(action)
-
-  def withProver[A](keepVersions: Int = 0)
-                   (action: (PersistentBatchAVLProver[Digest32, Blake2b256Unsafe],
-                     VersionedIODBAVLStorage[Digest32]) => A): A = {
-    val dir = getRandomTempDir
-    val store = new LSMStore(dir, keepVersions = keepVersions)
-    val storage = new VersionedIODBAVLStorage(store, NodeParameters(KL, VL, LL))
-    require(storage.isEmpty)
-    val Success(prover) = PersistentBatchAVLProver.create[Digest32, Blake2b256Unsafe](
-      new BatchAVLProver[Digest32, Blake2b256Unsafe](KL, Some(VL)), storage, paranoidChecks = true)
-
-    val res = action(prover, storage)
-
-    Path(dir).deleteRecursively()
-    res
-  }
-
-  private def getRandomTempDir: File = {
-    val dir = java.nio.file.Files.createTempDirectory("avliodb_test_" + Random.alphanumeric.take(15)).toFile
-    dir.deleteOnExit()
-    dir
-  }
+  override protected val KL = 32
+  override protected val VL = 8
+  override protected val LL = 32
 
   def kvGen: Gen[(ADKey, ADValue)] = for {
     key <- Gen.listOfN(KL, Arbitrary.arbitrary[Byte]).map(_.toArray) suchThat
@@ -57,111 +27,100 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     value <- Gen.listOfN(VL, Arbitrary.arbitrary[Byte]).map(_.toArray)
   } yield (ADKey @@ key, ADValue @@ value)
 
-  property("Persistence AVL batch prover - rollback") {
-    withProver { (prover, _) =>
-      (0 until 100) foreach { i =>
-        prover.performOneOperation(Insert(ADKey @@ Blake2b256("k" + i).take(KL),
-          ADValue @@ Blake2b256("v" + i).take(VL)))
-      }
-      prover.generateProof
 
-      val digest = prover.digest
-      (100 until 200) foreach { i =>
-        prover.performOneOperation(Insert(ADKey @@ Blake2b256("k" + i).take(KL),
-          ADValue @@ Blake2b256("v" + i).take(VL)))
-      }
-      prover.generateProof
-      Base58.encode(prover.digest) should not equal Base58.encode(digest)
+  /**
+    * List of all test cases
+    */
+
+  val rollbackTest: PERSISTENT_PROVER => Unit = { (prover: PERSISTENT_PROVER) =>
+
+    def ops(s: Int, e: Int): Unit = (s until e).foreach{ i =>
+      prover.performOneOperation(Insert(ADKey @@ Blake2b256("k" + i).take(KL),
+        ADValue @@ Blake2b256("v" + i).take(VL)))
+    }
+
+    ops(0, 100)
+    prover.generateProof
+
+    val digest = prover.digest
+    val digest58String = digest.toBase58
+
+    ops(100, 200)
+    prover.generateProof
+
+    prover.digest.toBase58 should not equal digest58String
+
+    prover.rollback(digest)
+
+    prover.digest.toBase58 shouldEqual digest58String
+
+    prover.checkTree(true)
+  }
+
+  val basicTest: (PERSISTENT_PROVER, STORAGE) => Unit = { (prover: PERSISTENT_PROVER, storage: STORAGE) =>
+    var digest = prover.digest
+
+    def oneMod(aKey: ADKey, aValue: ADValue): Unit = {
+      prover.digest shouldBe digest
+
+      val m = Insert(aKey, aValue)
+      prover.performOneOperation(m)
+      val pf = prover.generateProof
+
+      val verifier = createVerifier(digest, pf)
+      verifier.performOneOperation(m).isSuccess shouldBe true
+      prover.digest.toBase58 should not equal digest.toBase58
+      prover.digest.toBase58 shouldEqual verifier.digest.get.toBase58
 
       prover.rollback(digest).get
-      Base58.encode(prover.digest) shouldEqual Base58.encode(digest)
 
       prover.checkTree(true)
+
+      prover.digest shouldBe digest
+
+      prover.performOneOperation(m)
+      val pf2 = prover.generateProof
+
+      pf shouldBe pf2
+
+      prover.checkTree(true)
+
+      val verifier2 = createVerifier(digest, pf2)
+      verifier2.performOneOperation(m).isSuccess shouldBe true
+
+      digest = prover.digest
     }
+
+    (1 to 100).foreach { _ =>
+      val (aKey, aValue) = kvGen.sample.get
+      oneMod(aKey, aValue)
+    }
+
+    val prover2 = createPersistentProver(storage)
+    prover2.digest.toBase58 shouldEqual prover.digest.toBase58
+    prover2.checkTree(postProof = true)
   }
 
-
-  property("Persistence AVL batch prover - basic test") {
-
-    withProver { (prover, storage) =>
-      var digest = prover.digest
-
-      def oneMod(aKey: ADKey, aValue: ADValue): Unit = {
-        prover.digest shouldBe digest
-
-        val m = Insert(aKey, aValue)
-        prover.performOneOperation(m)
-        val pf = prover.generateProof
-
-        val verifier = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](digest, pf, KL, Some(VL))
-        verifier.performOneOperation(m).isSuccess shouldBe true
-        Base58.encode(prover.digest) should not equal Base58.encode(digest)
-        Base58.encode(prover.digest) shouldEqual Base58.encode(verifier.digest.get)
-
-        prover.rollback(digest).get
-
-        prover.checkTree(true)
-
-        prover.digest shouldBe digest
-
-        prover.performOneOperation(m)
-        val pf2 = prover.generateProof
-
-        pf shouldBe pf2
-
-        prover.checkTree(true)
-
-        val verifier2 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](digest, pf2, KL, Some(VL))
-        verifier2.performOneOperation(m).isSuccess shouldBe true
-
-        digest = prover.digest
-      }
-
-      (1 to 100).foreach { _ =>
-        val (aKey, aValue) = kvGen.sample.get
-        oneMod(aKey, aValue)
-      }
-
-      val prover2 = PersistentBatchAVLProver.create(new BatchAVLProver[Digest32, Blake2b256Unsafe](KL, Some(VL), None),
-        storage).get
-      Base58.encode(prover2.digest) shouldBe Base58.encode(prover.digest)
-      prover2.checkTree(postProof = true)
+  val rollbackVersionsTest: (PERSISTENT_PROVER, STORAGE) => Unit = { (prover: PERSISTENT_PROVER, storage: STORAGE) =>
+    (0L until 50L).foreach { long =>
+      val insert = Insert(ADKey @@ RandomBytes.randomBytes(32),
+        ADValue @@ com.google.common.primitives.Longs.toByteArray(long))
+      prover.performOneOperation(insert)
+      prover.generateProof()
+      prover.digest
     }
+    noException should be thrownBy storage.rollbackVersions.foreach(v => prover.rollback(v).get)
   }
 
-  property("Persistence AVL batch prover - rollback version") {
-    withProver(10) { (prover, storage) =>
-      (0L until 50L).foreach { long =>
-        val insert = Insert(ADKey @@ RandomBytes.randomBytes(32),
-          ADValue @@ com.google.common.primitives.Longs.toByteArray(long))
-        prover.performOneOperation(insert)
-        prover.generateProof()
-        prover.digest
-      }
-      noException should be thrownBy storage.rollbackVersions.foreach(v => prover.rollback(v).get)
-    }
-  }
-
-  property("Persistence AVL batch prover - remove single random element from a large set") {
-
+  def removeFromLargerSetSingleRandomElementTest(createStore: (Int) => Store): Unit = {
     val minSetSize = 10000
     val maxSetSize = 200000
 
     forAll(Gen.choose(minSetSize, maxSetSize), Arbitrary.arbBool.arbitrary) { case (cnt, generateProof) =>
       whenever(cnt > minSetSize) {
 
-        val suffixBytes = hf(System.currentTimeMillis() + " : " + new String(RandomBytes.randomBytes(20))).take(4)
-        val suffixInt = Ints.fromByteArray(suffixBytes)
-
-        val dirName = "/tmp/iohk/avliodb" + suffixInt
-
-        val dir = new File(dirName)
-        dir.mkdirs().ensuring(_ == true)
-        //dir.listFiles().foreach(f => f.delete())
-        val store = new LSMStore(new File(dirName)).ensuring(_.lastVersionID.isEmpty)
-
+        val store = createStore(0).ensuring(_.lastVersionID.isEmpty)
         val t = Try {
-
           var keys = IndexedSeq[ADKey]()
           val p = new BatchAVLProver[Digest32, Blake2b256Unsafe](KL, Some(VL))
 
@@ -176,11 +135,10 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
           }
 
           if (generateProof) p.generateProof()
-
-          val storage = new VersionedIODBAVLStorage(store, NodeParameters(KL, VL, LL))
+          val storage = createVersionedStorage(store)
           assert(storage.isEmpty)
 
-          val prover = PersistentBatchAVLProver.create(p, storage, true).get
+          val prover = createPersistentProver(storage, p)
 
           val keyPosition = scala.util.Random.nextInt(keys.length)
           val rndKey = keys(keyPosition)
@@ -201,10 +159,63 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
           }
         }
         store.close()
-        Path(dir).deleteRecursively()
         t.get
       }
     }
+  }
+
+
+  /**
+    * All checks are being made with both underlying storage implementations
+    * 1 LSMStore
+    * 2 QuickStore
+    */
+
+  property("Persistence AVL batch prover (LSMStore backed) - rollback") {
+    val prover = createPersistentProverWithLSM()
+    rollbackTest(prover)
+  }
+
+  ignore("Persistence AVL batch prover (QuickStore backed) - rollback") {
+    val prover = createPersistentProverWithQuick()
+    rollbackTest(prover)
+  }
+
+
+  property("Persistence AVL batch prover (LSMStore backed) - basic test") {
+    val store = createLSMStore()
+    val storage = createVersionedStorage(store)
+    val prover = createPersistentProver(storage)
+    basicTest(prover, storage)
+  }
+
+  ignore("Persistence AVL batch prover (QuickStore backed) - basic test") {
+    val store = createQuickStore()
+    val storage = createVersionedStorage(store)
+    val prover = createPersistentProver(storage)
+    basicTest(prover, storage)
+  }
+
+  property("Persistence AVL batch prover (LSMStore backed) - rollback version") {
+    val store = createLSMStore(1000)
+    val storage = createVersionedStorage(store)
+    val prover = createPersistentProver(storage)
+    rollbackVersionsTest(prover, storage)
+  }
+
+  ignore("Persistence AVL batch prover (QuickStore backed) - rollback version") {
+    val store = createQuickStore(1000)
+    val storage = createVersionedStorage(store)
+    val prover = createPersistentProver(storage)
+    basicTest(prover, storage)
+  }
+
+  property("Persistence AVL batch prover (LSM backed) - remove single random element from a large set") {
+    removeFromLargerSetSingleRandomElementTest(createLSMStore _)
+  }
+
+  ignore("Persistence AVL batch prover (QuickStore backed) - remove single random element from a large set") {
+    removeFromLargerSetSingleRandomElementTest(createQuickStore _)
   }
 
 }

@@ -1,21 +1,17 @@
 package scorex.crypto.authds.avltree.batch.benchmark
 
-import java.io.File
-
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
+import scorex.crypto.authds.avltree.batch.helpers.FileHelper
 import scorex.utils.Random
 
-object IODBBenchmark extends App {
-  val Dirname = "/tmp/iohk/iodbfailer"
+object IODBBenchmark extends App with FileHelper {
   val KL = 32
   val VL = 8
   val LL = 32
   val NumMods = 2000000
   val Step = 1000
 
-  new File(Dirname).mkdirs()
-  new File(Dirname).listFiles().foreach(f => f.delete())
-  val store = new LSMStore(new File(Dirname))
+  val store = new LSMStore(getRandomTempDir)
   val mods = generateModifications()
   var currentVersion: Option[Long] = None
 
