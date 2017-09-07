@@ -55,9 +55,7 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
     Failure(e)
   }
 
-  override def isEmpty: Boolean = version sameElements InitialVersion
-
-  override def version: ADDigest = store.lastVersionID.map(d => ADDigest @@ d.data).getOrElse(InitialVersion)
+  override def version: Option[ADDigest] = store.lastVersionID.map(d => ADDigest @@ d.data)
 
   def rollbackVersions: Iterable[ADDigest] = store.rollbackVersions().map(d => ADDigest @@ d.data)
 
