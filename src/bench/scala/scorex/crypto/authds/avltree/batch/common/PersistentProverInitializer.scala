@@ -23,7 +23,7 @@ object PersistentProverInitializer {
           k.copyToArray(key)
           persProver.performOneOperation(Insert(key, ADValue @@ k.take(cfg.vl)))
         }
-        persProver.generateProof()
+        persProver.generateProofAndUpdateStorage()
       }
       persProver
     } else {

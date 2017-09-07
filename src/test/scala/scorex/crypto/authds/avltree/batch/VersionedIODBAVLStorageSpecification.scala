@@ -63,14 +63,14 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
         prover.performOneOperation(Insert(ADKey @@ Blake2b256("k" + i).take(KL),
           ADValue @@ Blake2b256("v" + i).take(VL)))
       }
-      prover.generateProof
+      prover.generateProofAndUpdateStorage()
 
       val digest = prover.digest
       (100 until 200) foreach { i =>
         prover.performOneOperation(Insert(ADKey @@ Blake2b256("k" + i).take(KL),
           ADValue @@ Blake2b256("v" + i).take(VL)))
       }
-      prover.generateProof
+      prover.generateProofAndUpdateStorage()
       Base58.encode(prover.digest) should not equal Base58.encode(digest)
 
       prover.rollback(digest).get
@@ -91,7 +91,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
         val m = Insert(aKey, aValue)
         prover.performOneOperation(m)
-        val pf = prover.generateProof
+        val pf = prover.generateProofAndUpdateStorage()
 
         val verifier = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](digest, pf, KL, Some(VL))
         verifier.performOneOperation(m).isSuccess shouldBe true
@@ -105,7 +105,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
         prover.digest shouldBe digest
 
         prover.performOneOperation(m)
-        val pf2 = prover.generateProof
+        val pf2 = prover.generateProofAndUpdateStorage()
 
         pf shouldBe pf2
 
@@ -135,7 +135,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
         val insert = Insert(ADKey @@ RandomBytes.randomBytes(32),
           ADValue @@ com.google.common.primitives.Longs.toByteArray(long))
         prover.performOneOperation(insert)
-        prover.generateProof()
+        prover.generateProofAndUpdateStorage()
         prover.digest
       }
       noException should be thrownBy storage.rollbackVersions.foreach(v => prover.rollback(v).get)

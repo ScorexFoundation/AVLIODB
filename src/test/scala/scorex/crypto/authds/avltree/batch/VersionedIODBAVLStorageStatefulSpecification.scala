@@ -108,7 +108,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof = sut.generateProof()
+      val proof = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
 
       sut.rollback(digest).get
@@ -116,7 +116,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       require(digest.sameElements(updatedDigest))
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val sameProof = sut.generateProof()
+      val sameProof = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val updatedPostDigest = sut.digest
 
@@ -155,12 +155,12 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       val digest1 = sut.digest
       firstBatch.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof1 = sut.generateProof()
+      val proof1 = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val digest2 = sut.digest
       secondBatch.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof2 = sut.generateProof()
+      val proof2 = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
 
       sut.rollback(digest1).get
@@ -168,7 +168,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       require(digest1.sameElements(updatedDigest))
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val sameProof = sut.generateProof()
+      val sameProof = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val updatedPostDigest = sut.digest
 
@@ -211,7 +211,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof = sut.generateProof()
+      val proof = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val postDigest = sut.digest
 
@@ -220,7 +220,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       require(digest.sameElements(digest2))
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof2 = sut.generateProof()
+      val proof2 = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val postDigest2 = sut.digest
 
@@ -263,7 +263,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      sut.generateProof()
+      sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       sut.rollback(digest).get
       require(digest.sameElements(sut.digest))
@@ -288,7 +288,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       splitOps.foreach { operations =>
         operations.foreach(sut.performOneOperation)
         sut.checkTree(postProof = false)
-        sut.generateProof()
+        sut.generateProofAndUpdateStorage()
         sut.checkTree(postProof = true)
       }
 
@@ -298,7 +298,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       splitOps.foreach { operations =>
         operations.foreach(sut.performOneOperation)
         sut.checkTree(postProof = false)
-        sut.generateProof()
+        sut.generateProofAndUpdateStorage()
         sut.checkTree(postProof = true)
       }
     }
@@ -322,7 +322,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof = sut.generateProof()
+      val proof = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val postDigest = sut.digest
       ResultData(digest, postDigest, proof)
@@ -345,7 +345,5 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
     }
 
     case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: SerializedAdProof)
-
   }
-
 }

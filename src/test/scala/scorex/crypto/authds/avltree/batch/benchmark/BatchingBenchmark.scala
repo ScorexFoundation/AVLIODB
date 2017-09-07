@@ -59,7 +59,7 @@ object BatchingBenchmark extends App {
     val (persProverTime, _) = time {
       converted.foreach(c => persProver.performOneOperation(c))
       persProver.digest
-      persProver.generateProof
+      persProver.generateProofAndUpdateStorage()
     }
 
     if (scala.util.Random.nextInt(50) == 49) {
@@ -70,7 +70,7 @@ object BatchingBenchmark extends App {
       }
       println("rollback time: " + rollbackTime)
       converted.foreach(c => persProver.performOneOperation(c))
-      persProver.generateProof
+      persProver.generateProofAndUpdateStorage()
     }
 
     val (proverTime, _) = time {
