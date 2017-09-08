@@ -21,27 +21,7 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
   private val DigestLength = 33
   private val InitialVersion = ADDigest @@ Array.fill(DigestLength)(11: Byte)
 
-  override def update(prover: BatchAVLProver[D, _]): Try[Unit] = Try {
-    //TODO topNode is a special case?
-    val topNode = prover.topNode
-    val key = nodeKey(topNode)
-    val topNodePair = (key, ByteArrayWrapper(toBytes(topNode)))
-    val digestWrapper = ByteArrayWrapper(prover.digest)
-    val indexes = Seq(TopNodeKey -> key, TopNodeHeight -> ByteArrayWrapper(Ints.toByteArray(prover.rootNodeHeight)))
-    val toInsert = serializedVisitedNodes(topNode)
-    log.trace(s"Put(${store.lastVersionID}) ${toInsert.map(k => Base58.encode(k._1.data))}")
-    val toUpdate = if (!toInsert.map(_._1).contains(key)) {
-      topNodePair +: (indexes ++ toInsert)
-    } else indexes ++ toInsert
-
-    log.info(toUpdate.size + " elements to insert into db")
-
-    //TODO toRemove list?
-    store.update(digestWrapper, toRemove = Seq(), toUpdate)
-  }.recoverWith { case e =>
-    log.warn("Failed to update tree", e)
-    Failure(e)
-  }
+  override def update(prover: BatchAVLProver[D, _]): Try[Unit] = update(prover, Seq())
 
   override def rollback(version: ADDigest): Try[(ProverNodes[D], Int)] = Try {
     store.rollback(ByteArrayWrapper(version))
@@ -55,9 +35,7 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
     Failure(e)
   }
 
-  override def isEmpty: Boolean = version sameElements InitialVersion
-
-  override def version: ADDigest = store.lastVersionID.map(d => ADDigest @@ d.data).getOrElse(InitialVersion)
+  override def version: Option[ADDigest] = store.lastVersionID.map(d => ADDigest @@ d.data)
 
   def rollbackVersions: Iterable[ADDigest] = store.rollbackVersions().map(d => ADDigest @@ d.data)
 
@@ -82,6 +60,33 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
   private def toBytes(node: ProverNodes[D]): Array[Byte] = node match {
     case n: InternalProverNode[D] => InternalNodePrefix +: n.balance +: (n.key ++ n.left.label ++ n.right.label)
     case n: ProverLeaf[D] => LeafPrefix +: (n.key ++ n.value ++ n.nextLeafKey)
+  }
+
+  override def update[K <: Array[Byte], V <: Array[Byte]](prover: BatchAVLProver[D, _],
+                                                          additionalData: Seq[(K, V)]): Try[Unit] = Try {
+    //TODO topNode is a special case?
+    val topNode = prover.topNode
+    val key = nodeKey(topNode)
+    val topNodePair = (key, ByteArrayWrapper(toBytes(topNode)))
+    val digestWrapper = ByteArrayWrapper(prover.digest)
+    val indexes = Seq(TopNodeKey -> key, TopNodeHeight -> ByteArrayWrapper(Ints.toByteArray(prover.rootNodeHeight)))
+    val toInsert = serializedVisitedNodes(topNode)
+    log.trace(s"Put(${store.lastVersionID}) ${toInsert.map(k => Base58.encode(k._1.data))}")
+    val toUpdate = if (!toInsert.map(_._1).contains(key)) {
+      topNodePair +: (indexes ++ toInsert)
+    } else indexes ++ toInsert
+
+    log.info(toUpdate.size + " elements to insert into db")
+
+    val toUpdateWrapped = additionalData.map{case (k, v) =>
+      ByteArrayWrapper(k) -> ByteArrayWrapper(v)
+    }
+
+    //TODO toRemove list?
+    store.update(digestWrapper, toRemove = Seq(), toUpdate ++ toUpdateWrapped)
+  }.recoverWith { case e =>
+    log.warn("Failed to update tree", e)
+    Failure(e)
   }
 }
 

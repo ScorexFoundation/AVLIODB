@@ -29,7 +29,7 @@ object Performance extends Bench.ForkedTime with OperationsOps {
         ) in { modifications =>
         modifications.toOps.foreach(persProverWithLSM.performOneOperation)
         persProverWithLSM.digest
-        persProverWithLSM.generateProof()
+        persProverWithLSM.generateProofAndUpdateStorage()
       }
     }
   }

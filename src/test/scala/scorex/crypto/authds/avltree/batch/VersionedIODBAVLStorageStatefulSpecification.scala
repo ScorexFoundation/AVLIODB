@@ -6,7 +6,7 @@ import org.scalacheck.commands.Commands
 import org.scalacheck.{Gen, Prop}
 import org.scalatest.PropSpec
 import scorex.crypto.authds.avltree.batch.helpers.TestHelper
-import scorex.crypto.authds.{ADDigest, ADKey, ADProof, ADValue}
+import scorex.crypto.authds._
 import scorex.crypto.hash.{Blake2b256Unsafe, Digest32}
 import scorex.utils.{Random => RandomBytes}
 
@@ -116,7 +116,7 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof = sut.generateProof()
+      val proof = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
 
       sut.rollback(digest).get
@@ -124,7 +124,7 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       require(digest.sameElements(updatedDigest))
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val sameProof = sut.generateProof()
+      val sameProof = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val updatedPostDigest = sut.digest
 
@@ -148,7 +148,8 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       Prop.propBoolean(propBoolean)
     }
 
-    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: ADProof, consistent: Boolean)
+    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: SerializedAdProof, consistent: Boolean)
+
   }
 
   case class BackAndForthTwoTimesCheck(ops: List[Operation]) extends Command {
@@ -162,12 +163,12 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       val digest1 = sut.digest
       firstBatch.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof1 = sut.generateProof()
+      val proof1 = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val digest2 = sut.digest
       secondBatch.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof2 = sut.generateProof()
+      val proof2 = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
 
       sut.rollback(digest1).get
@@ -175,7 +176,7 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       require(digest1.sameElements(updatedDigest))
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val sameProof = sut.generateProof()
+      val sameProof = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val updatedPostDigest = sut.digest
 
@@ -205,8 +206,9 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
     case class ResultData(digest1: ADDigest,
                           digest2: ADDigest,
                           postDigest: ADDigest,
-                          proof1: ADProof,
-                          proof2: ADProof)
+                          proof1: SerializedAdProof,
+                          proof2: SerializedAdProof)
+
   }
 
   case class BackAndForthDoubleCheck(ops: List[Operation]) extends Command {
@@ -217,7 +219,7 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof = sut.generateProof()
+      val proof = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val postDigest = sut.digest
 
@@ -226,7 +228,7 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       require(digest.sameElements(digest2))
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof2 = sut.generateProof()
+      val proof2 = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val postDigest2 = sut.digest
 
@@ -258,8 +260,9 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
                           postDigest: ADDigest,
                           digest2: ADDigest,
                           postDigest2: ADDigest,
-                          proof: ADProof,
-                          proof2: ADProof)
+                          proof: SerializedAdProof,
+                          proof2: SerializedAdProof)
+
   }
 
   case class ApplyAndRollback(ops: List[Operation]) extends UnitCommand {
@@ -268,7 +271,7 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      sut.generateProof()
+      sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       sut.rollback(digest).get
       require(digest.sameElements(sut.digest))
@@ -293,7 +296,7 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       splitOps.foreach { operations =>
         operations.foreach(sut.performOneOperation)
         sut.checkTree(postProof = false)
-        sut.generateProof()
+        sut.generateProofAndUpdateStorage()
         sut.checkTree(postProof = true)
       }
 
@@ -303,7 +306,7 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       splitOps.foreach { operations =>
         operations.foreach(sut.performOneOperation)
         sut.checkTree(postProof = false)
-        sut.generateProof()
+        sut.generateProofAndUpdateStorage()
         sut.checkTree(postProof = true)
       }
     }
@@ -327,7 +330,7 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       val digest = sut.digest
       ops.foreach(sut.performOneOperation)
       sut.checkTree(postProof = false)
-      val proof = sut.generateProof()
+      val proof = sut.generateProofAndUpdateStorage()
       sut.checkTree(postProof = true)
       val postDigest = sut.digest
       ResultData(digest, postDigest, proof)
@@ -349,7 +352,6 @@ trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelpe
       Prop.propBoolean(propBoolean)
     }
 
-    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: ADProof)
+    case class ResultData(digest: ADDigest, postDigest: ADDigest, proof: SerializedAdProof)
   }
-
 }

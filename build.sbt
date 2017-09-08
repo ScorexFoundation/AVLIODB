@@ -2,7 +2,7 @@ organization := "org.scorexfoundation"
 
 name := "avl-iodb"
 
-version := "0.2.7"
+version := "0.2.9"
 
 scalaVersion := "2.12.3"
 

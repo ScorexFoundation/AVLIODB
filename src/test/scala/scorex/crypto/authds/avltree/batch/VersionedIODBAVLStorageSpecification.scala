@@ -40,13 +40,13 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     }
 
     ops(0, 100)
-    prover.generateProof
+    prover.generateProofAndUpdateStorage()
 
     val digest = prover.digest
     val digest58String = digest.toBase58
 
     ops(100, 200)
-    prover.generateProof
+    prover.generateProofAndUpdateStorage()
 
     prover.digest.toBase58 should not equal digest58String
 
@@ -65,7 +65,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
       val m = Insert(aKey, aValue)
       prover.performOneOperation(m)
-      val pf = prover.generateProof
+      val pf = prover.generateProofAndUpdateStorage()
 
       val verifier = createVerifier(digest, pf)
       verifier.performOneOperation(m).isSuccess shouldBe true
@@ -79,7 +79,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       prover.digest shouldBe digest
 
       prover.performOneOperation(m)
-      val pf2 = prover.generateProof
+      val pf2 = prover.generateProofAndUpdateStorage()
 
       pf shouldBe pf2
 
@@ -106,7 +106,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       val insert = Insert(ADKey @@ RandomBytes.randomBytes(32),
         ADValue @@ com.google.common.primitives.Longs.toByteArray(long))
       prover.performOneOperation(insert)
-      prover.generateProof()
+      prover.generateProofAndUpdateStorage()
       prover.digest
     }
     noException should be thrownBy storage.rollbackVersions.foreach(v => prover.rollback(v).get)
