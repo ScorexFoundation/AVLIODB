@@ -1,11 +1,11 @@
 package scorex.crypto.authds.avltree.batch
 
 import com.google.common.primitives.Longs
-import io.iohk.iodb.LSMStore
 import org.scalacheck.Test.Parameters
 import org.scalacheck.commands.Commands
 import org.scalacheck.{Gen, Prop}
 import org.scalatest.PropSpec
+import scorex.crypto.authds.avltree.batch.helpers.TestHelper
 import scorex.crypto.authds._
 import scorex.crypto.hash.{Blake2b256Unsafe, Digest32}
 import scorex.utils.{Random => RandomBytes}
@@ -18,21 +18,43 @@ class VersionedIODBAVLStorageStatefulSpecification extends PropSpec {
     .withMaxSize(50)
     .withMinSuccessfulTests(15)
 
-  property("IODBAVLStorage: rollback in stateful environment") {
-    VersionedIODBAVLStorageStatefulCommands.property().check(params)
+  property("IODBAVLStorage: rollback in stateful environment with LSM") {
+    WithLSM.property().check(params)
+  }
+
+  property("IODBAVLStorage: rollback in stateful environment with Quick") {
+    WithQuick.property().check(params)
   }
 }
 
+object WithLSM extends VersionedIODBAVLStorageStatefulCommands with TestHelper {
 
-object VersionedIODBAVLStorageStatefulCommands extends Commands {
+  override protected val KL = 32
+  override protected val VL = 8
+  override protected val LL = 32
+
+  override protected def createStatefulProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe] = {
+    createPersistentProverWithLSM(keepVersions)
+  }
+}
+
+object WithQuick extends VersionedIODBAVLStorageStatefulCommands with TestHelper {
+
+  override protected val KL = 32
+  override protected val VL = 8
+  override protected val LL = 32
+
+  override protected def createStatefulProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe] = {
+    createPersistentProverWithQuick(keepVersions)
+  }
+}
+
+trait VersionedIODBAVLStorageStatefulCommands extends Commands { this: TestHelper =>
 
   override type State = Operations
   override type Sut = PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]
-  val KeyLength = 32
-  val ValueLength = 8
-  val LabelLength = 32
-  val KeepVersions = 1000
-  implicit val hf = new Blake2b256Unsafe
+  val keepVersions = 1000
+
   private val MAXIMUM_GENERATED_OPERATIONS = 20
   private val MINIMUM_OPERATIONS_LENGTH = 10
   private val UPDATE_FRACTION = 2
@@ -44,21 +66,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
   override def newSut(state: State): Sut = createStatefulProver
 
-  private def createStatefulProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe] = {
-    val store = new LSMStore(dir = randomTempDir, keySize = KeyLength, keepVersions = KeepVersions)
-    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, Some(ValueLength))
-    val storage = new VersionedIODBAVLStorage[Digest32](store, NodeParameters(KeyLength, ValueLength, LabelLength))
-    require(storage.isEmpty)
-    val persistentProver = PersistentBatchAVLProver.create(prover, storage, paranoidChecks = true).get
-    persistentProver
-  }
-
-  private def randomTempDir: java.io.File = {
-    val dir = java.nio.file.Files.createTempDirectory(Random.alphanumeric.take(15).mkString).toFile
-    dir.mkdirs()
-    dir.deleteOnExit()
-    dir
-  }
+  protected def createStatefulProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]
 
   override def destroySut(sut: Sut): Unit = ()
 
@@ -69,7 +77,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
   override def genCommand(state: State): Gen[Command] = {
     val appendsCommandsLength = Random.nextInt(MAXIMUM_GENERATED_OPERATIONS) + MINIMUM_OPERATIONS_LENGTH
 
-    val keys = (0 until appendsCommandsLength).map { _ => ADKey @@ RandomBytes.randomBytes(KeyLength) }.toList
+    val keys = (0 until appendsCommandsLength).map { _ => ADKey @@ RandomBytes.randomBytes(KL) }.toList
     val removedKeys = state.operations.filter(_.isInstanceOf[Remove]).map(_.key).distinct
     val prevKeys = state.operations.map(_.key).distinct.filterNot(k1 => removedKeys.exists { k2 => k1.sameElements(k2) })
     val uniqueKeys = keys.filterNot(prevKeys.contains).distinct
@@ -131,7 +139,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
       val propBoolean = result match {
         case Success(data) =>
-          val verifier = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest, data.proof, KeyLength, Some(ValueLength))
+          val verifier = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest, data.proof, KL, Some(VL))
           ops.foreach(verifier.performOneOperation)
           data.consistent && verifier.digest.exists(_.sameElements(data.postDigest))
         case Failure(_) =>
@@ -183,8 +191,8 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
       val propBoolean = result match {
         case Success(data) =>
           val (firstBatch, secondBatch) = ops.splitAt(ops.length / 2)
-          val verifier1 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest1, data.proof1, KeyLength, Some(ValueLength))
-          val verifier2 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest2, data.proof2, KeyLength, Some(ValueLength))
+          val verifier1 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest1, data.proof1, KL, Some(VL))
+          val verifier2 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest2, data.proof2, KL, Some(VL))
           firstBatch.foreach(verifier1.performOneOperation)
           secondBatch.foreach(verifier2.performOneOperation)
           verifier1.digest.exists(_.sameElements(data.digest2)) &&
@@ -235,8 +243,8 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
 
       val propBoolean = result match {
         case Success(data) =>
-          val verifier1 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest, data.proof, KeyLength, Some(ValueLength))
-          val verifier2 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest2, data.proof2, KeyLength, Some(ValueLength))
+          val verifier1 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest, data.proof, KL, Some(VL))
+          val verifier2 = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest2, data.proof2, KL, Some(VL))
           ops.foreach(verifier1.performOneOperation)
           ops.foreach(verifier2.performOneOperation)
           val verifiedFirstDataSet = verifier1.digest.exists(_.sameElements(data.postDigest))
@@ -335,7 +343,7 @@ object VersionedIODBAVLStorageStatefulCommands extends Commands {
     override def postCondition(state: Operations, result: Try[Result]): Prop = {
       val propBoolean = result match {
         case Success(data) =>
-          val verifier = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest, data.proof, KeyLength, Some(ValueLength))
+          val verifier = new BatchAVLVerifier[Digest32, Blake2b256Unsafe](data.digest, data.proof, KL, Some(VL))
           ops.foreach(verifier.performOneOperation)
           verifier.digest.exists(_.sameElements(data.postDigest))
         case Failure(_) =>
