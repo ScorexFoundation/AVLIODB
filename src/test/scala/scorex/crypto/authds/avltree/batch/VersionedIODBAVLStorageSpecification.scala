@@ -1,6 +1,7 @@
 package scorex.crypto.authds.avltree.batch
 
-import io.iohk.iodb.Store
+import com.google.common.primitives.Longs
+import io.iohk.iodb.{ByteArrayWrapper, Store}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
@@ -112,6 +113,52 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     noException should be thrownBy storage.rollbackVersions.foreach(v => prover.rollback(v).get)
   }
 
+  def testAddInfoSaving(createStore: (Int) => Store): Unit = {
+    val store = createStore(1000)
+    val storage = createVersionedStorage(store)
+    val prover = createPersistentProver(storage)
+
+    implicit def arrayToWrapper(in: Array[Byte]): ByteArrayWrapper = ByteArrayWrapper(in)
+
+    val insert1 = Insert(ADKey @@ RandomBytes.randomBytes(32), ADValue @@ Longs.toByteArray(1L))
+    val insert2 = Insert(ADKey @@ RandomBytes.randomBytes(32), ADValue @@ Longs.toByteArray(2L))
+    val insert3 = Insert(ADKey @@ RandomBytes.randomBytes(32), ADValue @@ Longs.toByteArray(3L))
+    val insert4 = Insert(ADKey @@ RandomBytes.randomBytes(32), ADValue @@ Longs.toByteArray(4L))
+    val insert5 = Insert(ADKey @@ RandomBytes.randomBytes(32), ADValue @@ Longs.toByteArray(5L))
+
+    val addInfo1 = RandomBytes.randomBytes(32) -> Longs.toByteArray(6L)
+    val addInfo2 = RandomBytes.randomBytes(32) -> Longs.toByteArray(7L)
+
+    prover.performOneOperation(insert1)
+    prover.generateProofAndUpdateStorage()
+    val digest1 = prover.digest
+
+    prover.performOneOperation(insert2)
+    prover.performOneOperation(insert3)
+    prover.generateProofAndUpdateStorage(Seq(addInfo1))
+
+    val digest2 = prover.digest
+
+    prover.performOneOperation(insert4)
+    prover.performOneOperation(insert5)
+    prover.generateProofAndUpdateStorage(Seq(addInfo2))
+
+
+    store.get(addInfo1._1) shouldBe defined
+    store.get(addInfo2._1) shouldBe defined
+
+    storage.rollback(digest2)
+
+    store.get(addInfo1._1) shouldBe defined
+    store.get(addInfo2._1) shouldBe None
+
+    storage.rollback(digest1)
+
+    store.get(addInfo1._1) shouldBe None
+    store.get(addInfo2._1) shouldBe None
+
+  }
+
   def removeFromLargerSetSingleRandomElementTest(createStore: (Int) => Store): Unit = {
     val minSetSize = 10000
     val maxSetSize = 200000
@@ -216,6 +263,14 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
   ignore("Persistence AVL batch prover (QuickStore backed) - remove single random element from a large set") {
     removeFromLargerSetSingleRandomElementTest(createQuickStore _)
+  }
+
+  property("Persistence AVL batch prover (LSM backed) - save additional info") {
+    testAddInfoSaving(createLSMStore _)
+  }
+
+  ignore("Persistence AVL batch prover (Quick Store backed) - save additional info") {
+    testAddInfoSaving(createQuickStore _)
   }
 
 }
