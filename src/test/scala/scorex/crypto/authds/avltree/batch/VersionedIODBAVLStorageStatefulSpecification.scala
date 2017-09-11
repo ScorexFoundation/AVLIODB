@@ -22,7 +22,7 @@ class VersionedIODBAVLStorageStatefulSpecification extends PropSpec {
     WithLSM.property().check(params)
   }
 
-  ignore("IODBAVLStorage: rollback in stateful environment with Quick") {
+  property("IODBAVLStorage: rollback in stateful environment with Quick") {
     WithQuick.property().check(params)
   }
 }

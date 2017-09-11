@@ -223,7 +223,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     rollbackTest(prover)
   }
 
-  ignore("Persistence AVL batch prover (QuickStore backed) - rollback") {
+  property("Persistence AVL batch prover (QuickStore backed) - rollback") {
     val prover = createPersistentProverWithQuick()
     rollbackTest(prover)
   }
@@ -236,7 +236,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     basicTest(prover, storage)
   }
 
-  ignore("Persistence AVL batch prover (QuickStore backed) - basic test") {
+  property("Persistence AVL batch prover (QuickStore backed) - basic test") {
     val store = createQuickStore()
     val storage = createVersionedStorage(store)
     val prover = createPersistentProver(storage)
@@ -250,7 +250,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     rollbackVersionsTest(prover, storage)
   }
 
-  ignore("Persistence AVL batch prover (QuickStore backed) - rollback version") {
+  property("Persistence AVL batch prover (QuickStore backed) - rollback version") {
     val store = createQuickStore(1000)
     val storage = createVersionedStorage(store)
     val prover = createPersistentProver(storage)
@@ -261,7 +261,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     removeFromLargerSetSingleRandomElementTest(createLSMStore _)
   }
 
-  ignore("Persistence AVL batch prover (QuickStore backed) - remove single random element from a large set") {
+  property("Persistence AVL batch prover (QuickStore backed) - remove single random element from a large set") {
     removeFromLargerSetSingleRandomElementTest(createQuickStore _)
   }
 
@@ -269,7 +269,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     testAddInfoSaving(createLSMStore _)
   }
 
-  ignore("Persistence AVL batch prover (Quick Store backed) - save additional info") {
+  property("Persistence AVL batch prover (Quick Store backed) - save additional info") {
     testAddInfoSaving(createQuickStore _)
   }
 
