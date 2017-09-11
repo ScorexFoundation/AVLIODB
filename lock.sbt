@@ -7,7 +7,7 @@ dependencyOverrides in ThisBuild ++= Set(
   "org.bouncycastle" % "bcprov-jdk15on" % "1.58",
   "org.rudogma" % "supertagged_2.12" % "1.3",
   "org.scorexfoundation" % "iodb_2.12" % "0.3.2-SNAPSHOT",
-  "org.scorexfoundation" % "scrypto_2.12" % "2.0.2-SNAPSHOT",
+  "org.scorexfoundation" % "scrypto_2.12" % "2.0.2",
   "org.slf4j" % "slf4j-api" % "1.7.25",
   "org.whispersystems" % "curve25519-java" % "0.4.1"
 )
