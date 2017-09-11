@@ -1,7 +1,7 @@
 package scorex.crypto.authds.avltree.batch.helpers
 
 import io.iohk.iodb.{LSMStore, QuickStore, Store}
-import scorex.crypto.authds.{ADDigest, ADProof}
+import scorex.crypto.authds.{ADDigest, SerializedAdProof}
 import scorex.crypto.authds.avltree.batch._
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.{Blake2b256Unsafe, Digest32}
@@ -11,7 +11,7 @@ trait TestHelper extends FileHelper {
   type HF = Blake2b256Unsafe
   type D = Digest32
   type AD = ADDigest
-  type P = ADProof
+  type P = SerializedAdProof
   type PROVER = BatchAVLProver[D, HF]
   type VERIFIER = BatchAVLVerifier[D, HF]
   type PERSISTENT_PROVER = PersistentBatchAVLProver[D, HF]
