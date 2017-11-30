@@ -18,8 +18,8 @@ class VersionedIODBAVLStorageStatefulSpecification extends PropSpec {
     .withMaxSize(50)
     .withMinSuccessfulTests(15)
 
-  property("IODBAVLStorage: rollback in stateful environment with LSM") {
-    WithLSM.property().check(params)
+  property("IODBAVLStorage: rollback in stateful environment with LogStore") {
+    WithLog.property().check(params)
   }
 
   property("IODBAVLStorage: rollback in stateful environment with Quick") {
@@ -27,14 +27,14 @@ class VersionedIODBAVLStorageStatefulSpecification extends PropSpec {
   }
 }
 
-object WithLSM extends VersionedIODBAVLStorageStatefulCommands with TestHelper {
+object WithLog extends VersionedIODBAVLStorageStatefulCommands with TestHelper {
 
   override protected val KL = 32
   override protected val VL = 8
   override protected val LL = 32
 
   override protected def createStatefulProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe] = {
-    createPersistentProverWithLSM(keepVersions)
+    createPersistentProverWithLog(keepVersions)
   }
 }
 

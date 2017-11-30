@@ -1,6 +1,6 @@
 package scorex.crypto.authds.avltree.batch.benchmark
 
-import io.iohk.iodb.{FileAccess, LSMStore}
+import io.iohk.iodb.LogStore
 import scorex.crypto.authds._
 import scorex.crypto.authds.avltree.batch.helpers.FileHelper
 import scorex.crypto.authds.avltree.batch.{VersionedIODBAVLStorage, _}
@@ -17,7 +17,7 @@ object BatchingBenchmark extends App with FileHelper {
 
   implicit val hf = new Blake2b256Unsafe
 
-  val store = new LSMStore(getRandomTempDir, keepVersions = 10, fileAccess = FileAccess.UNSAFE)
+  val store = new LogStore(getRandomTempDir, keepVersions = 10)
   val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
   require(storage.isEmpty)
   val mods = generateModifications()

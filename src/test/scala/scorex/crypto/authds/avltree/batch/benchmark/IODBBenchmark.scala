@@ -1,6 +1,6 @@
 package scorex.crypto.authds.avltree.batch.benchmark
 
-import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
+import io.iohk.iodb.{ByteArrayWrapper, LogStore}
 import scorex.crypto.authds.avltree.batch.helpers.FileHelper
 import scorex.utils.Random
 
@@ -11,7 +11,7 @@ object IODBBenchmark extends App with FileHelper {
   val NumMods = 2000000
   val Step = 1000
 
-  val store = new LSMStore(getRandomTempDir)
+  val store = new LogStore(getRandomTempDir)
   val mods = generateModifications()
   var currentVersion: Option[Long] = None
 
