@@ -110,7 +110,8 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       prover.generateProofAndUpdateStorage()
       prover.digest
     }
-    noException should be thrownBy storage.rollbackVersions.foreach(v => prover.rollback(v).get)
+    val versionsFromStore = storage.rollbackVersions.toList.reverse
+    noException should be thrownBy versionsFromStore.foreach(prover.rollback)
   }
 
   def testAddInfoSaving(createStore: (Int) => Store): Unit = {
@@ -214,12 +215,13 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
   /**
     * All checks are being made with both underlying storage implementations
-    * 1 LSMStore
+    * 1 LogStore
     * 2 QuickStore
+    * 3 ShardedStore
     */
 
-  property("Persistence AVL batch prover (LSMStore backed) - rollback") {
-    val prover = createPersistentProverWithLSM()
+  property("Persistence AVL batch prover (LogStore backed) - rollback") {
+    val prover = createPersistentProverWithLog()
     rollbackTest(prover)
   }
 
@@ -228,9 +230,13 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     rollbackTest(prover)
   }
 
+  property("Persistence AVL batch prover (ShardedStore backed) - rollback") {
+    val prover = createPersistentProverWithSharded
+    rollbackTest(prover)
+  }
 
-  property("Persistence AVL batch prover (LSMStore backed) - basic test") {
-    val store = createLSMStore()
+  property("Persistence AVL batch prover (LogStore backed) - basic test") {
+    val store = createLogStore()
     val storage = createVersionedStorage(store)
     val prover = createPersistentProver(storage)
     basicTest(prover, storage)
@@ -243,8 +249,15 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     basicTest(prover, storage)
   }
 
-  property("Persistence AVL batch prover (LSMStore backed) - rollback version") {
-    val store = createLSMStore(1000)
+  property("Persistence AVL batch prover (ShardedStore backed) - basic test") {
+    val store = createShardedStore
+    val storage = createVersionedStorage(store)
+    val prover = createPersistentProver(storage)
+    basicTest(prover, storage)
+  }
+
+  property("Persistence AVL batch prover (LogStore backed) - rollback version") {
+    val store = createLogStore(1000)
     val storage = createVersionedStorage(store)
     val prover = createPersistentProver(storage)
     rollbackVersionsTest(prover, storage)
@@ -254,23 +267,38 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     val store = createQuickStore(1000)
     val storage = createVersionedStorage(store)
     val prover = createPersistentProver(storage)
-    basicTest(prover, storage)
+    rollbackVersionsTest(prover, storage)
+  }
+
+  property("Persistence AVL batch prover (Shardedtore backed) - rollback version") {
+    val store = createShardedStore
+    val storage = createVersionedStorage(store)
+    val prover = createPersistentProver(storage)
+    rollbackVersionsTest(prover, storage)
   }
 
   property("Persistence AVL batch prover (LSM backed) - remove single random element from a large set") {
-    removeFromLargerSetSingleRandomElementTest(createLSMStore _)
+    removeFromLargerSetSingleRandomElementTest(createLogStore _)
   }
 
   property("Persistence AVL batch prover (QuickStore backed) - remove single random element from a large set") {
     removeFromLargerSetSingleRandomElementTest(createQuickStore _)
   }
 
+  property("Persistence AVL batch prover (ShardedStore backed) - remove single random element from a large set") {
+    removeFromLargerSetSingleRandomElementTest((_:Int) => createShardedStore)
+  }
+
   property("Persistence AVL batch prover (LSM backed) - save additional info") {
-    testAddInfoSaving(createLSMStore _)
+    testAddInfoSaving(createLogStore _)
   }
 
   property("Persistence AVL batch prover (Quick Store backed) - save additional info") {
     testAddInfoSaving(createQuickStore _)
+  }
+
+  property("Persistence AVL batch prover (Sharded Store backed) - save additional info") {
+    testAddInfoSaving((_:Int) => createShardedStore)
   }
 
 }

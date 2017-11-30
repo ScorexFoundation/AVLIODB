@@ -1,6 +1,6 @@
 package scorex.crypto.authds.avltree.batch.helpers
 
-import io.iohk.iodb.{LSMStore, QuickStore, Store}
+import io.iohk.iodb._
 import scorex.crypto.authds.{ADDigest, SerializedAdProof}
 import scorex.crypto.authds.avltree.batch._
 import scorex.crypto.encode.Base58
@@ -25,14 +25,19 @@ trait TestHelper extends FileHelper {
 
   case class Data(p: PERSISTENT_PROVER, s: STORAGE)
 
-  def createLSMStore(keepVersions: Int = 0): Store = {
+  def createLogStore(keepVersions: Int = 0): Store = {
     val dir = getRandomTempDir
-    new LSMStore(dir, keepVersions = keepVersions)
+    new LogStore(dir, keepVersions = keepVersions)
   }
 
   def createQuickStore(keepVersions: Int = 0): Store = {
     val dir = getRandomTempDir
     new QuickStore(dir, keepVersions = keepVersions)
+  }
+
+  def createShardedStore: Store = {
+    val dir = getRandomTempDir
+    new ShardedStore(dir)
   }
 
   def createVersionedStorage(store: Store): STORAGE = new VersionedIODBAVLStorage(store, NodeParameters(KL, VL, LL))
@@ -45,14 +50,20 @@ trait TestHelper extends FileHelper {
   def createPersistentProver(storage: STORAGE, prover: PROVER): PERSISTENT_PROVER =
     PersistentBatchAVLProver.create[D, HF](prover, storage, paranoidChecks = true).get
 
-  def createPersistentProverWithLSM(keepVersions: Int = 0): PERSISTENT_PROVER = {
-    val store = createLSMStore(keepVersions)
+  def createPersistentProverWithLog(keepVersions: Int = 0): PERSISTENT_PROVER = {
+    val store = createLogStore(keepVersions)
     val storage = createVersionedStorage(store)
     createPersistentProver(storage)
   }
 
   def createPersistentProverWithQuick(keepVersions: Int = 0): PERSISTENT_PROVER = {
     val store = createQuickStore(keepVersions)
+    val storage = createVersionedStorage(store)
+    createPersistentProver(storage)
+  }
+
+  def createPersistentProverWithSharded: PERSISTENT_PROVER = {
+    val store = createShardedStore
     val storage = createVersionedStorage(store)
     createPersistentProver(storage)
   }

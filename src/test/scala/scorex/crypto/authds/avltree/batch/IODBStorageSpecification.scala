@@ -38,7 +38,9 @@ class IODBStorageSpecification extends PropSpec
     }
   }
 
-  property("IODB with LSM") { storeTest(createLSMStore()) }
+  property("IODB with LogStore") { storeTest(createLogStore()) }
 
   property("IODB with QuickStore") { storeTest(createQuickStore()) }
+
+  property("IODB with ShardedStore") { storeTest(createShardedStore) }
 }
