@@ -217,6 +217,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     * All checks are being made with both underlying storage implementations
     * 1 LogStore
     * 2 QuickStore
+    * 3 ShardedStore
     */
 
   property("Persistence AVL batch prover (LogStore backed) - rollback") {
@@ -229,6 +230,10 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     rollbackTest(prover)
   }
 
+  property("Persistence AVL batch prover (ShardedStore backed) - rollback") {
+    val prover = createPersistentProverWithSharded
+    rollbackTest(prover)
+  }
 
   property("Persistence AVL batch prover (LogStore backed) - basic test") {
     val store = createLogStore()
@@ -239,6 +244,13 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
   property("Persistence AVL batch prover (QuickStore backed) - basic test") {
     val store = createQuickStore()
+    val storage = createVersionedStorage(store)
+    val prover = createPersistentProver(storage)
+    basicTest(prover, storage)
+  }
+
+  property("Persistence AVL batch prover (ShardedStore backed) - basic test") {
+    val store = createShardedStore
     val storage = createVersionedStorage(store)
     val prover = createPersistentProver(storage)
     basicTest(prover, storage)
@@ -255,7 +267,14 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     val store = createQuickStore(1000)
     val storage = createVersionedStorage(store)
     val prover = createPersistentProver(storage)
-    basicTest(prover, storage)
+    rollbackVersionsTest(prover, storage)
+  }
+
+  property("Persistence AVL batch prover (Shardedtore backed) - rollback version") {
+    val store = createShardedStore
+    val storage = createVersionedStorage(store)
+    val prover = createPersistentProver(storage)
+    rollbackVersionsTest(prover, storage)
   }
 
   property("Persistence AVL batch prover (LSM backed) - remove single random element from a large set") {
@@ -266,12 +285,20 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     removeFromLargerSetSingleRandomElementTest(createQuickStore _)
   }
 
+  property("Persistence AVL batch prover (ShardedStore backed) - remove single random element from a large set") {
+    removeFromLargerSetSingleRandomElementTest((_:Int) => createShardedStore)
+  }
+
   property("Persistence AVL batch prover (LSM backed) - save additional info") {
     testAddInfoSaving(createLogStore _)
   }
 
   property("Persistence AVL batch prover (Quick Store backed) - save additional info") {
     testAddInfoSaving(createQuickStore _)
+  }
+
+  property("Persistence AVL batch prover (Sharded Store backed) - save additional info") {
+    testAddInfoSaving((_:Int) => createShardedStore)
   }
 
 }

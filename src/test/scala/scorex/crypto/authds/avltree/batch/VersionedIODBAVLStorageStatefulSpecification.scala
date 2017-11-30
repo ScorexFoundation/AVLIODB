@@ -22,8 +22,12 @@ class VersionedIODBAVLStorageStatefulSpecification extends PropSpec {
     WithLog.property().check(params)
   }
 
-  property("IODBAVLStorage: rollback in stateful environment with Quick") {
+  property("IODBAVLStorage: rollback in stateful environment with QuickStore") {
     WithQuick.property().check(params)
+  }
+
+  property("IODBAVLStorage: rollback in stateful environment with ShardedStore") {
+    WithSharded.property().check(params)
   }
 }
 
@@ -35,6 +39,17 @@ object WithLog extends VersionedIODBAVLStorageStatefulCommands with TestHelper {
 
   override protected def createStatefulProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe] = {
     createPersistentProverWithLog(keepVersions)
+  }
+}
+
+object WithSharded extends VersionedIODBAVLStorageStatefulCommands with TestHelper {
+
+  override protected val KL = 32
+  override protected val VL = 8
+  override protected val LL = 32
+
+  override protected def createStatefulProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe] = {
+    createPersistentProverWithSharded
   }
 }
 

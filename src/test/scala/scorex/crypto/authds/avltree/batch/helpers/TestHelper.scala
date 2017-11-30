@@ -35,6 +35,11 @@ trait TestHelper extends FileHelper {
     new QuickStore(dir, keepVersions = keepVersions)
   }
 
+  def createShardedStore: Store = {
+    val dir = getRandomTempDir
+    new ShardedStore(dir)
+  }
+
   def createVersionedStorage(store: Store): STORAGE = new VersionedIODBAVLStorage(store, NodeParameters(KL, VL, LL))
 
   def createPersistentProver(storage: STORAGE): PERSISTENT_PROVER = {
@@ -53,6 +58,12 @@ trait TestHelper extends FileHelper {
 
   def createPersistentProverWithQuick(keepVersions: Int = 0): PERSISTENT_PROVER = {
     val store = createQuickStore(keepVersions)
+    val storage = createVersionedStorage(store)
+    createPersistentProver(storage)
+  }
+
+  def createPersistentProverWithSharded: PERSISTENT_PROVER = {
+    val store = createShardedStore
     val storage = createVersionedStorage(store)
     createPersistentProver(storage)
   }
