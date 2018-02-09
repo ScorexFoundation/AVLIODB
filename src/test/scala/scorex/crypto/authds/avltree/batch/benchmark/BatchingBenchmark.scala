@@ -18,7 +18,7 @@ object BatchingBenchmark extends App with FileHelper {
   implicit val hf = new Blake2b256Unsafe
 
   val store = new LSMStore(getRandomTempDir, keepVersions = 10, fileAccess = FileAccess.UNSAFE)
-  val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
+  val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, Some(ValueLength), LabelLength))
   require(storage.isEmpty)
   val mods = generateModifications()
   var digest: ADDigest = ADDigest @@ Array[Byte]()
