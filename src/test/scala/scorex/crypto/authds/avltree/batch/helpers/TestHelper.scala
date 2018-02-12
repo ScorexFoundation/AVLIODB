@@ -35,7 +35,7 @@ trait TestHelper extends FileHelper {
     new QuickStore(dir, keepVersions = keepVersions)
   }
 
-  def createVersionedStorage(store: Store): STORAGE = new VersionedIODBAVLStorage(store, NodeParameters(KL, VL, LL))
+  def createVersionedStorage(store: Store): STORAGE = new VersionedIODBAVLStorage(store, NodeParameters(KL, Some(VL), LL))
 
   def createPersistentProver(storage: STORAGE): PERSISTENT_PROVER = {
     val prover = new BatchAVLProver[D, HF](KL, Some(VL))
