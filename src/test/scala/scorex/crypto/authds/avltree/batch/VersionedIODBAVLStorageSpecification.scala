@@ -114,7 +114,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       prover.generateProofAndUpdateStorage()
       prover.digest
 
-      prover.rollback(startRoot)
+      prover.rollback(startRoot).get
       prover.digest shouldEqual startRoot
 
       mods.foldLeft[Try[Option[ADValue]]](Success(None)) { case (t, m) =>
@@ -215,12 +215,12 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     store.get(addInfo1._1) shouldBe defined
     store.get(addInfo2._1) shouldBe defined
 
-    storage.rollback(digest2)
+    storage.rollback(digest2).get
 
     store.get(addInfo1._1) shouldBe defined
     store.get(addInfo2._1) shouldBe None
 
-    storage.rollback(digest1)
+    storage.rollback(digest1).get
 
     store.get(addInfo1._1) shouldBe None
     store.get(addInfo2._1) shouldBe None
