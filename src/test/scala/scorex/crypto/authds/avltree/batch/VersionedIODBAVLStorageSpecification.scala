@@ -11,6 +11,8 @@ import scorex.crypto.encode.Base58
 import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe, Digest32}
 import scorex.utils.{Random => RandomBytes}
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.util.{Random, Success, Try}
 
 class VersionedIODBAVLStorageSpecification extends PropSpec
@@ -59,7 +61,8 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     prover.checkTree(true)
   }
 
-  //Test similar to blockchain workflow - generate proofs for some modifications, rollback, apply modifications
+  // Test similar to blockchain workflow - generate proofs for some modifications, rollback, apply modifications
+  // Read-only access to some elements in parallel
   val blockchainWorkflowTest: PERSISTENT_PROVER => Unit = { prover: PERSISTENT_PROVER =>
 
     val pairs = (1 to 10000).map(_ => kvGen.sample.get)
@@ -74,6 +77,16 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       val removes: Seq[Remove] = (0 until numRemoves).flatMap(i => prover.avlProver.randomWalk(rnd))
         .groupBy(a => Base58.encode(a._1)).map(_._2.head).map(kv => Remove(kv._1)).toSeq
       val mods = removes ++ inserts
+
+      // Parallel access to prover.digest should not lead to application failure
+      Future {
+        (0 until 1000) map { _ =>
+          Try {
+            Thread.sleep(10)
+            prover.digest
+          }
+        }
+      }
 
       mods.foldLeft[Try[Option[ADValue]]](Success(None)) { case (t, m) =>
         t.flatMap(_ => prover.performOneOperation(m))
