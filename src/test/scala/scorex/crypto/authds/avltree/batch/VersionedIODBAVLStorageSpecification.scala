@@ -7,7 +7,7 @@ import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.crypto.authds.avltree.batch.helpers.TestHelper
 import scorex.crypto.authds.{ADKey, ADValue}
-import scorex.crypto.encode.Base58
+import scorex.crypto.encode.{Base16, Base58}
 import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe, Digest32}
 import scorex.utils.{Random => RandomBytes}
 
@@ -63,36 +63,48 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   // Read-only access to some elements in parallel should not affect modifications application
-  val parallelReadTest: PERSISTENT_PROVER => Unit = { prover: PERSISTENT_PROVER =>
-    val pairs = (1 to 10000).map(_ => kvGen.sample.get)
-    pairs.foreach(p => prover.performOneOperation(Insert(p._1, p._2)))
-    prover.generateProofAndUpdateStorage
+  val parallelReadTest: PERSISTENT_PROVER => Unit = {
+    def performModifications(prover: PERSISTENT_PROVER, inserts: Seq[Insert]) = {
+      inserts.foldLeft[Try[Option[ADValue]]](Success(None)) { case (t, m) =>
+        t.flatMap(_ => prover.performOneOperation(m))
+      }.get
+      prover.generateProofAndUpdateStorage()
+    }
 
-    forAll(Gen.choose(1, 10), Gen.choose(1, 10), Arbitrary.arbitrary[Long]) { (numRemoves, numInserts, seed) =>
-      val inserts: Seq[Insert] = (0 until numInserts).flatMap(_ => kvGen.sample).map(kv => Insert(kv._1, kv._2))
-      val startRoot = prover.digest
-
-      // Parallel access to prover.digest should not lead to application failure
-      val future = Future {
+    def startParallelReads(prover: PERSISTENT_PROVER) = {
+      Future {
         def loop(): Unit = {
           Thread.sleep(10)
-          prover.digest
+          Try(prover.digest)
           loop()
         }
 
         loop()
       }
-
-      inserts.foldLeft[Try[Option[ADValue]]](Success(None)) { case (t, m) =>
-        t.flatMap(_ => prover.performOneOperation(m))
-      }.get
-      prover.generateProofAndUpdateStorage()
-      prover.rollback(startRoot)
-      prover.digest shouldEqual startRoot
-      // cancel future
-      Try(Await.result(future, 0.millis))
     }
 
+    prover: PERSISTENT_PROVER =>
+      val pairs = (1 to 10000).map(_ => kvGen.sample.get)
+      pairs.foreach(p => prover.performOneOperation(Insert(p._1, p._2)))
+      prover.generateProofAndUpdateStorage
+
+      val blocks: Seq[Seq[Insert]] = (0 until 10).map(_ => (0 until 10).flatMap(_ => kvGen.sample)
+        .map(kv => Insert(kv._1, kv._2)))
+
+      val parallelReadsFuture = startParallelReads(prover)
+      // apply blocks
+      blocks.foldLeft(prover.digest) { (startRoot, block) =>
+        prover.digest shouldEqual startRoot
+
+        performModifications(prover, block)
+        prover.rollback(startRoot)
+        Base16.encode(prover.digest) shouldBe Base16.encode(startRoot)
+
+        performModifications(prover, block)
+
+        prover.digest
+      }
+      Try(Await.result(parallelReadsFuture, 0.millis))
   }
 
 
