@@ -12,7 +12,8 @@ import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe, Digest32}
 import scorex.utils.{Random => RandomBytes}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.util.{Random, Success, Try}
 
 class VersionedIODBAVLStorageSpecification extends PropSpec
@@ -72,13 +73,14 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       val startRoot = prover.digest
 
       // Parallel access to prover.digest should not lead to application failure
-      Future {
-        Try {
-          (0 until 1000) map { _ =>
-            Thread.sleep(10)
-            prover.digest
-          }
+      val future = Future {
+        def loop(): Unit = {
+          Thread.sleep(10)
+          prover.digest
+          loop()
         }
+
+        loop()
       }
 
       inserts.foldLeft[Try[Option[ADValue]]](Success(None)) { case (t, m) =>
@@ -87,6 +89,8 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       prover.generateProofAndUpdateStorage()
       prover.rollback(startRoot)
       prover.digest shouldEqual startRoot
+      // cancel future
+      Try(Await.result(future, 0.millis))
     }
 
   }
