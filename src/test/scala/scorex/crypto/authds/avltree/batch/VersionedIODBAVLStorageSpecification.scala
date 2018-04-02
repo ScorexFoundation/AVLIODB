@@ -61,8 +61,38 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     prover.checkTree(true)
   }
 
+  // Read-only access to some elements in parallel should not affect modifications application
+  val parallelReadTest: PERSISTENT_PROVER => Unit = { prover: PERSISTENT_PROVER =>
+    val pairs = (1 to 10000).map(_ => kvGen.sample.get)
+    pairs.foreach(p => prover.performOneOperation(Insert(p._1, p._2)))
+    prover.generateProofAndUpdateStorage
+
+    forAll(Gen.choose(1, 10), Gen.choose(1, 10), Arbitrary.arbitrary[Long]) { (numRemoves, numInserts, seed) =>
+      val inserts: Seq[Insert] = (0 until numInserts).flatMap(_ => kvGen.sample).map(kv => Insert(kv._1, kv._2))
+      val startRoot = prover.digest
+
+      // Parallel access to prover.digest should not lead to application failure
+      Future {
+        Try {
+          (0 until 1000) map { _ =>
+            Thread.sleep(10)
+            prover.digest
+          }
+        }
+      }
+
+      inserts.foldLeft[Try[Option[ADValue]]](Success(None)) { case (t, m) =>
+        t.flatMap(_ => prover.performOneOperation(m))
+      }.get
+      prover.generateProofAndUpdateStorage()
+      prover.rollback(startRoot)
+      prover.digest shouldEqual startRoot
+    }
+
+  }
+
+
   // Test similar to blockchain workflow - generate proofs for some modifications, rollback, apply modifications
-  // Read-only access to some elements in parallel
   val blockchainWorkflowTest: PERSISTENT_PROVER => Unit = { prover: PERSISTENT_PROVER =>
 
     val pairs = (1 to 10000).map(_ => kvGen.sample.get)
@@ -77,16 +107,6 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       val removes: Seq[Remove] = (0 until numRemoves).flatMap(i => prover.avlProver.randomWalk(rnd))
         .groupBy(a => Base58.encode(a._1)).map(_._2.head).map(kv => Remove(kv._1)).toSeq
       val mods = removes ++ inserts
-
-      // Parallel access to prover.digest should not lead to application failure
-      Future {
-        (0 until 1000) map { _ =>
-          Try {
-            Thread.sleep(10)
-            prover.digest
-          }
-        }
-      }
 
       mods.foldLeft[Try[Option[ADValue]]](Success(None)) { case (t, m) =>
         t.flatMap(_ => prover.performOneOperation(m))
@@ -104,8 +124,6 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
       prover.generateProofAndUpdateStorage()
       prover.digest
     }
-
-
   }
 
   val basicTest: (PERSISTENT_PROVER, STORAGE) => Unit = { (prover: PERSISTENT_PROVER, storage: STORAGE) =>
@@ -267,6 +285,12 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     * 1 LSMStore
     * 2 QuickStore
     */
+
+  property("Persistence AVL batch prover (LSMStore backed) - parallel read-write") {
+    val prover = createPersistentProverWithLSM()
+    parallelReadTest(prover)
+  }
+
 
   property("Persistence AVL batch prover (LSMStore backed) - blockchain workflow") {
     val prover = createPersistentProverWithLSM()
