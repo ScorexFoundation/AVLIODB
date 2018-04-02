@@ -32,7 +32,7 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
 
     top -> topHeight
   }.recoverWith { case e =>
-    log.warn("Failed to recover tree", e)
+    log.warn(s"Failed to recover tree for digest ${Base58.encode(version)}:", e)
     Failure(e)
   }
 
