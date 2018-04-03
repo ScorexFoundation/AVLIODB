@@ -36,7 +36,7 @@ object Helper {
     val dir = java.nio.file.Files.createTempDirectory("bench_testing_" + scala.util.Random.alphanumeric.take(15)).toFile
     dir.deleteOnExit()
     val store = new LSMStore(dir, keepVersions = keepVersions, fileAccess = FileAccess.UNSAFE)
-    val storage = new VersionedIODBAVLStorage(store, NodeParameters(kl, vl, ll))
+    val storage = new VersionedIODBAVLStorage(store, NodeParameters(kl, Some(vl), ll))
     require(storage.isEmpty)
     val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](kl, Some(vl))
 
