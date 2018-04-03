@@ -2,16 +2,17 @@ package scorex.crypto.authds.banchmarks
 
 import com.google.common.primitives.Longs
 import io.iohk.iodb.{FileAccess, LSMStore}
-import scorex.crypto.authds.{ADKey, ADValue}
 import scorex.crypto.authds.avltree.batch._
-import scorex.crypto.hash.{Blake2b256Unsafe, Digest32}
+import scorex.crypto.authds.{ADKey, ADValue}
+import scorex.crypto.hash.{Blake2b256, Digest32}
 import scorex.utils.Random
 
 object Helper {
 
-  type Prover = PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]
+  type HF = Blake2b256.type
+  type Prover = PersistentBatchAVLProver[Digest32, HF]
 
-  implicit val hf = new Blake2b256Unsafe
+  implicit val hf = Blake2b256
 
   val kl = 32
   val vl = 8
@@ -38,7 +39,7 @@ object Helper {
     val store = new LSMStore(dir, keepVersions = keepVersions, fileAccess = FileAccess.UNSAFE)
     val storage = new VersionedIODBAVLStorage(store, NodeParameters(kl, Some(vl), ll))
     require(storage.isEmpty)
-    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](kl, Some(vl))
+    val prover = new BatchAVLProver[Digest32, HF](kl, Some(vl))
 
 
     val persProver = PersistentBatchAVLProver.create(prover, storage, paranoidChecks = true).get

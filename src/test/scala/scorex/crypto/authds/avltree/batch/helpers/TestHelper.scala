@@ -1,14 +1,14 @@
 package scorex.crypto.authds.avltree.batch.helpers
 
 import io.iohk.iodb.{LSMStore, QuickStore, Store}
-import scorex.crypto.authds.{ADDigest, SerializedAdProof}
 import scorex.crypto.authds.avltree.batch._
+import scorex.crypto.authds.{ADDigest, SerializedAdProof}
 import scorex.crypto.encode.Base58
-import scorex.crypto.hash.{Blake2b256Unsafe, Digest32}
+import scorex.crypto.hash.{Blake2b256, Digest32}
 
 trait TestHelper extends FileHelper {
 
-  type HF = Blake2b256Unsafe
+  type HF = Blake2b256.type
   type D = Digest32
   type AD = ADDigest
   type P = SerializedAdProof
@@ -21,7 +21,7 @@ trait TestHelper extends FileHelper {
   protected val VL: Int
   protected val LL: Int
 
-  implicit val hf = new Blake2b256Unsafe
+  implicit val hf: HF = Blake2b256
 
   case class Data(p: PERSISTENT_PROVER, s: STORAGE)
 

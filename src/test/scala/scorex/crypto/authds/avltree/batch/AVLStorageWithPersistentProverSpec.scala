@@ -4,14 +4,15 @@ import io.iohk.iodb.{LSMStore, Store}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.crypto.authds.avltree.batch.benchmark.IODBBenchmark.getRandomTempDir
 import scorex.crypto.authds.{ADDigest, ADKey, ADValue, SerializedAdProof}
-import scorex.crypto.hash.{Blake2b256Unsafe, Digest32}
+import scorex.crypto.hash.{Blake2b256, Digest32}
 import scorex.utils.Random
 
 import scala.util.{Failure, Success, Try}
 
 class AVLStorageWithPersistentProverSpec extends PropSpec with Matchers {
 
-  implicit val hf: Blake2b256Unsafe = new Blake2b256Unsafe
+  type HF = Blake2b256.type
+  implicit val hf: HF = Blake2b256
 
   val stateStore: Store = new LSMStore(getRandomTempDir)
 
@@ -20,9 +21,9 @@ class AVLStorageWithPersistentProverSpec extends PropSpec with Matchers {
 
   protected lazy val storage = new VersionedIODBAVLStorage(stateStore, np)
 
-  protected lazy val persistentProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe] =
+  protected lazy val persistentProver: PersistentBatchAVLProver[Digest32, HF] =
     PersistentBatchAVLProver.create(
-      new BatchAVLProver[Digest32, Blake2b256Unsafe](
+      new BatchAVLProver[Digest32, HF](
         keyLength = 32, valueLengthOpt = None), storage).get
 
   def genProof(mods: Seq[Modification], rollBackTo: ADDigest): Try[(SerializedAdProof, ADDigest)] = {

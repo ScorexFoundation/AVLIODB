@@ -2,16 +2,16 @@ package scorex.crypto.authds.banchmarks
 
 import java.util.concurrent.{ThreadPoolExecutor, TimeUnit}
 
-import ch.qos.logback.classic.Logger
 import io.iohk.iodb.LSMStore
 import org.openjdk.jmh.annotations._
 import org.slf4j.LoggerFactory
 import scorex.crypto.authds.avltree.batch.{Operation, PersistentBatchAVLProver, VersionedIODBAVLStorage}
-import scorex.crypto.hash.{Blake2b256Unsafe, Digest32}
+import scorex.crypto.hash.{Blake2b256, Digest32}
 
 object AVLTreeBatchPerformance extends {
 
-  type Prover = PersistentBatchAVLProver[Digest32, Blake2b256Unsafe]
+  type HF = Blake2b256.type
+  type Prover = PersistentBatchAVLProver[Digest32, HF]
 
   import Helper._
 

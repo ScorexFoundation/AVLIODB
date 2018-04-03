@@ -4,7 +4,7 @@ import io.iohk.iodb.{FileAccess, LSMStore}
 import scorex.crypto.authds._
 import scorex.crypto.authds.avltree.batch.helpers.FileHelper
 import scorex.crypto.authds.avltree.batch.{VersionedIODBAVLStorage, _}
-import scorex.crypto.hash.{Blake2b256Unsafe, Digest32}
+import scorex.crypto.hash.{Blake2b256, Digest32}
 import scorex.utils.Random
 
 object BatchingBenchmark extends App with FileHelper {
@@ -15,7 +15,8 @@ object BatchingBenchmark extends App with FileHelper {
   val NumMods = 2000000
 
 
-  implicit val hf = new Blake2b256Unsafe
+  implicit val hf = Blake2b256
+  type HF = Blake2b256.type
 
   val store = new LSMStore(getRandomTempDir, keepVersions = 10, fileAccess = FileAccess.UNSAFE)
   val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, Some(ValueLength), LabelLength))
@@ -30,9 +31,9 @@ object BatchingBenchmark extends App with FileHelper {
   bench()
 
   def bench(): Unit = {
-    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, Some(ValueLength), None)
-    val persProver = PersistentBatchAVLProver.create[Digest32, Blake2b256Unsafe](
-      new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, Some(ValueLength), None),
+    val prover = new BatchAVLProver[Digest32, HF](KeyLength, Some(ValueLength), None)
+    val persProver = PersistentBatchAVLProver.create[Digest32, HF](
+      new BatchAVLProver[Digest32, HF](KeyLength, Some(ValueLength), None),
       storage,
       paranoidChecks = true).get
 
@@ -45,8 +46,8 @@ object BatchingBenchmark extends App with FileHelper {
   }
 
 
-  def oneStep(i: Int, step: Int, toPrint: Int, persProver: PersistentBatchAVLProver[Digest32, Blake2b256Unsafe],
-              prover: BatchAVLProver[Digest32, Blake2b256Unsafe]): Unit = {
+  def oneStep(i: Int, step: Int, toPrint: Int, persProver: PersistentBatchAVLProver[Digest32, HF],
+              prover: BatchAVLProver[Digest32, HF]): Unit = {
 
     System.gc()
     val converted = mods.slice(i, i + step)

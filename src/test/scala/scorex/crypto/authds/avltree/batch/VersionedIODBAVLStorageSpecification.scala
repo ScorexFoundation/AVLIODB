@@ -8,7 +8,7 @@ import org.scalatest.{Matchers, PropSpec}
 import scorex.crypto.authds.avltree.batch.helpers.TestHelper
 import scorex.crypto.authds.{ADKey, ADValue}
 import scorex.crypto.encode.{Base16, Base58}
-import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe, Digest32}
+import scorex.crypto.hash.{Blake2b256, Digest32}
 import scorex.utils.{Random => RandomBytes}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -253,7 +253,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
         val store = createStore(0).ensuring(_.lastVersionID.isEmpty)
         val t = Try {
           var keys = IndexedSeq[ADKey]()
-          val p = new BatchAVLProver[Digest32, Blake2b256Unsafe](KL, Some(VL))
+          val p = new BatchAVLProver[Digest32, HF](KL, Some(VL))
 
           (1 to cnt) foreach { _ =>
             val key = ADKey @@ RandomBytes.randomBytes(KL)
