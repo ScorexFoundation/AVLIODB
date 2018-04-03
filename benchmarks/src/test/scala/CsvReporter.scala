@@ -12,7 +12,7 @@ class CsvReporter extends Reporter[Double] {
       log(s"${measurement.params}: ${measurement.value} ${measurement.units}")
     }
 
-    val writer = new PrintWriter("target/scala-2.12/memory_avltree_results.csv")
+    val writer = new PrintWriter("target/memory_avltree_results.csv")
     val headerLine = result.measurements.map { m => m.params.axisData.head._2.toString }.mkString(",")
     val valuesLine = result.measurements.map { _.value }.mkString(",")
     writer.println(headerLine)
