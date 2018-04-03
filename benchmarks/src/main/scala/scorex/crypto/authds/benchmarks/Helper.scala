@@ -1,4 +1,4 @@
-package scorex.crypto.authds.banchmarks
+package scorex.crypto.authds.benchmarks
 
 import com.google.common.primitives.Longs
 import io.iohk.iodb.{FileAccess, LSMStore}
@@ -60,6 +60,28 @@ object Helper {
       (persProver, store, storage)
     } else {
       (persProver, store, storage)
+    }
+  }
+
+  def getProver(baseOperationsCount: Int = 0): BatchAVLProver[Digest32, Blake2b256Unsafe] = {
+    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](kl, Some(vl))
+    if (baseOperationsCount > 0) {
+      val step = 5000
+      Range(0, baseOperationsCount, step).foreach { v =>
+        val end = if (v + step == baseOperationsCount) {
+          v + step + 1
+        } else v + step
+        (v until end).foreach { i =>
+          val key = ADKey @@ new Array[Byte](kl)
+          val k = Longs.toByteArray(i) ++ Longs.toByteArray(System.currentTimeMillis)
+          k.copyToArray(key)
+          prover.performOneOperation(Insert(key, ADValue @@ k.take(vl)))
+        }
+        prover.generateProof()
+      }
+      prover
+    } else {
+      prover
     }
   }
 
