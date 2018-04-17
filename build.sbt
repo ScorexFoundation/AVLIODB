@@ -1,3 +1,5 @@
+import sbt.Keys.testFrameworks
+
 name := "avl-iodb"
 
 lazy val commonSettings = Seq(
@@ -31,7 +33,8 @@ libraryDependencies ++= Seq(
 
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.+" % "test",
-  "org.scalacheck" %% "scalacheck" % "1.13.+" % "test"
+  "org.scalacheck" %% "scalacheck" % "1.13.+" % "test",
+  "com.storm-enroute" %% "scalameter" % "0.9" % "test"
 )
 
 testOptions in Test := Seq(Tests.Filter(t => !t.matches(".*Benchmark$")))
@@ -55,6 +58,18 @@ pomIncludeRepository := { _ => false }
 lazy val avliodb = (project in file(".")).settings(commonSettings: _*)
 
 lazy val benchmarks = (project in file("benchmarks"))
-  .settings(commonSettings, name := "scrypto-benchmarks")
+  .settings(
+    commonSettings,
+    name := "scrypto-benchmarks",
+    libraryDependencies ++= Seq(
+      "com.storm-enroute" %% "scalameter" % "0.9" % "test"
+    ),
+    publishArtifact := false,
+    resolvers ++= Seq("Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases"),
+    testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
+    parallelExecution in Test := false,
+    logBuffered := false
+  )
   .dependsOn(avliodb)
   .enablePlugins(JmhPlugin)
+

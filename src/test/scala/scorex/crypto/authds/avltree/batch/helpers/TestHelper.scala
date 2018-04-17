@@ -8,6 +8,11 @@ import scorex.crypto.hash.{Blake2b256, Digest32}
 
 trait TestHelper extends FileHelper {
 
+  val enableQuickStore: Boolean = System.getProperty("java.specification.version").startsWith("8")
+
+  def quickTest[R](block: => R): Option[R] = if(enableQuickStore) Some(block)
+  else None
+
   type HF = Blake2b256.type
   type D = Digest32
   type AD = ADDigest

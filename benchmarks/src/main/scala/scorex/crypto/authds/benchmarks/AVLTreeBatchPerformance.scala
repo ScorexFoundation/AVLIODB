@@ -1,4 +1,4 @@
-package scorex.crypto.authds.banchmarks
+package scorex.crypto.authds.benchmarks
 
 import java.util.concurrent.{ThreadPoolExecutor, TimeUnit}
 

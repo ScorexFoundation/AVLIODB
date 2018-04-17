@@ -314,8 +314,10 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover (QuickStore backed) - blockchain workflow") {
-    val prover = createPersistentProverWithQuick()
-    blockchainWorkflowTest(prover)
+    quickTest {
+      val prover = createPersistentProverWithQuick()
+      blockchainWorkflowTest(prover)
+    }
   }
 
   property("Persistence AVL batch prover (LSMStore backed) - rollback") {
@@ -324,8 +326,10 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover (QuickStore backed) - rollback") {
-    val prover = createPersistentProverWithQuick()
-    rollbackTest(prover)
+    quickTest {
+      val prover = createPersistentProverWithQuick()
+      rollbackTest(prover)
+    }
   }
 
 
@@ -337,10 +341,12 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover (QuickStore backed) - basic test") {
-    val store = createQuickStore()
-    val storage = createVersionedStorage(store)
-    val prover = createPersistentProver(storage)
-    basicTest(prover, storage)
+    quickTest {
+      val store = createQuickStore()
+      val storage = createVersionedStorage(store)
+      val prover = createPersistentProver(storage)
+      basicTest(prover, storage)
+    }
   }
 
   property("Persistence AVL batch prover (LSMStore backed) - rollback version") {
@@ -351,10 +357,12 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover (QuickStore backed) - rollback version") {
-    val store = createQuickStore(1000)
-    val storage = createVersionedStorage(store)
-    val prover = createPersistentProver(storage)
-    basicTest(prover, storage)
+    quickTest {
+      val store = createQuickStore(1000)
+      val storage = createVersionedStorage(store)
+      val prover = createPersistentProver(storage)
+      basicTest(prover, storage)
+    }
   }
 
   property("Persistence AVL batch prover (LSM backed) - remove single random element from a large set") {
@@ -362,7 +370,9 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover (QuickStore backed) - remove single random element from a large set") {
-    removeFromLargerSetSingleRandomElementTest(createQuickStore _)
+    quickTest {
+      removeFromLargerSetSingleRandomElementTest(createQuickStore _)
+    }
   }
 
   property("Persistence AVL batch prover (LSM backed) - save additional info") {
@@ -370,7 +380,9 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover (Quick Store backed) - save additional info") {
-    testAddInfoSaving(createQuickStore _)
+    quickTest {
+      testAddInfoSaving(createQuickStore _)
+    }
   }
 
 }
