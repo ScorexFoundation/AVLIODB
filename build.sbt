@@ -26,8 +26,9 @@ lazy val commonSettings = Seq(
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/releases"
 
 libraryDependencies ++= Seq(
+  "javax.xml.bind" % "jaxb-api" % "2.+",
   "ch.qos.logback" % "logback-classic" % "1.2.3",
-  "org.scorexfoundation" %% "scrypto" % "2.+",
+  "org.scorexfoundation" %% "scrypto" % "2.0.5",
   "org.scorexfoundation" %% "iodb" % "0.3.2"
 )
 
