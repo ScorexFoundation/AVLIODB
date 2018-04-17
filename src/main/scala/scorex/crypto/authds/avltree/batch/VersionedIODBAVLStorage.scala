@@ -51,7 +51,9 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
     val digestWrapper = ByteArrayWrapper(prover.digest)
     val indexes = Seq(TopNodeKey -> key, TopNodeHeight -> ByteArrayWrapper(Ints.toByteArray(prover.rootNodeHeight)))
     val toInsert = serializedVisitedNodes(topNode)
-    log.trace(s"Put(${store.lastVersionID}) ${toInsert.map(k => Base58.encode(k._1.data))}")
+    val toRemove = prover.removedNodes().map(rn => ByteArrayWrapper(rn.label))
+    log.trace(s"Put(${store.lastVersionID}) ${toInsert.map(k => k._1)}, $toRemove")
+    if (toRemove.isEmpty) log.warn("Empty toRemove in storage update")
     val toUpdate = if (!toInsert.map(_._1).contains(key)) {
       topNodePair +: (indexes ++ toInsert)
     } else indexes ++ toInsert
@@ -62,8 +64,7 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
       ByteArrayWrapper(k) -> ByteArrayWrapper(v)
     }
 
-    //TODO toRemove list?
-    store.update(digestWrapper, toRemove = Seq(), toUpdate ++ toUpdateWrapped)
+    store.update(digestWrapper, toRemove, toUpdate ++ toUpdateWrapped)
   }.recoverWith { case e =>
     log.warn("Failed to update tree", e)
     Failure(e)
