@@ -5,8 +5,9 @@ import scorex.crypto.authds.avltree.batch._
 import scorex.crypto.authds.{ADDigest, SerializedAdProof}
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.{Blake2b256, Digest32}
+import scorex.utils.ScryptoLogging
 
-trait TestHelper extends FileHelper {
+trait TestHelper extends FileHelper with ScryptoLogging {
 
   val enableQuickStore: Boolean = System.getProperty("java.specification.version").startsWith("8")
 
