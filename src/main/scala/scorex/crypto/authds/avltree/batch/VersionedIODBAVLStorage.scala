@@ -44,19 +44,12 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
 
   override def update[K <: Array[Byte], V <: Array[Byte]](prover: BatchAVLProver[D, _],
                                                           additionalData: Seq[(K, V)]): Try[Unit] = Try {
-    //TODO topNode is a special case?
-    val topNode = prover.topNode
-    val key = nodeKey(topNode)
-    val topNodePair = (key, ByteArrayWrapper(toBytes(topNode)))
     val digestWrapper = ByteArrayWrapper(prover.digest)
-    val indexes = Seq(TopNodeKey -> key, TopNodeHeight -> ByteArrayWrapper(Ints.toByteArray(prover.rootNodeHeight)))
-    val toInsert = serializedVisitedNodes(topNode)
+    val indexes = Seq(TopNodeKey -> nodeKey(prover.topNode),
+      TopNodeHeight -> ByteArrayWrapper(Ints.toByteArray(prover.rootNodeHeight)))
+    val toInsert = serializedVisitedNodes(prover.topNode, isTop = true)
     val toRemove = prover.removedNodes().map(rn => ByteArrayWrapper(rn.label))
-    val toUpdate = if (!toInsert.map(_._1).contains(key)) {
-      topNodePair +: (indexes ++ toInsert)
-    } else indexes ++ toInsert
-
-
+    val toUpdate = indexes ++ toInsert
     val toUpdateWrapped = additionalData.map { case (k, v) =>
       ByteArrayWrapper(k) -> ByteArrayWrapper(v)
     }
@@ -71,13 +64,15 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
     Failure(e)
   }
 
-  private def serializedVisitedNodes(node: ProverNodes[D]): Seq[(ByteArrayWrapper, ByteArrayWrapper)] = {
-    if (node.isNew) {
+  private def serializedVisitedNodes(node: ProverNodes[D],
+                                     isTop: Boolean): Seq[(ByteArrayWrapper, ByteArrayWrapper)] = {
+    // Should always serialize top node. It may not be new if it is the creation of the tree
+    if (node.isNew || isTop) {
       val pair: (ByteArrayWrapper, ByteArrayWrapper) = (nodeKey(node), ByteArrayWrapper(toBytes(node)))
       node match {
         case n: InternalProverNode[D] =>
-          val leftSubtree = serializedVisitedNodes(n.left)
-          val rightSubtree = serializedVisitedNodes(n.right)
+          val leftSubtree = serializedVisitedNodes(n.left, isTop = false)
+          val rightSubtree = serializedVisitedNodes(n.right, isTop = false)
           pair +: (leftSubtree ++ rightSubtree)
         case _: ProverLeaf[D] => Seq(pair)
       }
