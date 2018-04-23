@@ -5,12 +5,13 @@ dependencyOverrides in ThisBuild ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.2.3",
   "ch.qos.logback" % "logback-core" % "1.2.3",
   "com.google.guava" % "guava" % "19.0",
+  "javax.xml.bind" % "jaxb-api" % "2.3.0",
   "net.jpountz.lz4" % "lz4" % "1.3.0",
-  "org.bouncycastle" % "bcprov-jdk15on" % "1.58",
+  "org.bouncycastle" % "bcprov-jdk15on" % "1.59",
   "org.rudogma" % "supertagged_2.12" % "1.4",
   "org.scorexfoundation" % "iodb_2.12" % "0.3.2",
-  "org.scorexfoundation" % "scrypto_2.12" % "2.0.5",
+  "org.scorexfoundation" % "scrypto_2.12" % "2.1.0",
   "org.slf4j" % "slf4j-api" % "1.7.25",
   "org.whispersystems" % "curve25519-java" % "0.4.1"
 )
-// LIBRARY_DEPENDENCIES_HASH bb679a6f8f94be735ef228afe8a18f01324f8670
+// LIBRARY_DEPENDENCIES_HASH 97d44538422393fbeb69a5e73ed7e9154167d4c8

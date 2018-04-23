@@ -40,5 +40,5 @@ class IODBStorageSpecification extends PropSpec
 
   property("IODB with LSM") { storeTest(createLSMStore()) }
 
-  property("IODB with QuickStore") { storeTest(createQuickStore()) }
+  property("IODB with QuickStore") { quickTest(storeTest(createQuickStore())) }
 }

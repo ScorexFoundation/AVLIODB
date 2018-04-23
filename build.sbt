@@ -4,8 +4,8 @@ name := "avl-iodb"
 
 lazy val commonSettings = Seq(
   organization := "org.scorexfoundation",
-  version := "0.2.12",
-  scalaVersion := "2.12.3",
+  version := "0.2.13",
+  scalaVersion := "2.12.4",
   licenses := Seq("CC0" -> url("https://creativecommons.org/publicdomain/zero/1.0/legalcode")),
   homepage := Some(url("https://github.com/ScorexFoundation/AVLIODB")),
   pomExtra :=
@@ -26,6 +26,7 @@ lazy val commonSettings = Seq(
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/releases"
 
 libraryDependencies ++= Seq(
+  "javax.xml.bind" % "jaxb-api" % "2.+",
   "ch.qos.logback" % "logback-classic" % "1.2.3",
   "org.scorexfoundation" %% "scrypto" % "2.+",
   "org.scorexfoundation" %% "iodb" % "0.3.2"

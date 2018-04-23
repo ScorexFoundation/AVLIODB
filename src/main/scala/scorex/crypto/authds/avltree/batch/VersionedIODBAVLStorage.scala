@@ -6,13 +6,13 @@ import scorex.crypto.authds.avltree.batch.VersionedIODBAVLStorage.{InternalNodeP
 import scorex.crypto.authds.{ADDigest, ADKey, ADValue, Balance}
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash
-import scorex.crypto.hash.{Digest, ThreadUnsafeHash}
+import scorex.crypto.hash.{CryptographicHash, Digest}
 import scorex.utils.ScryptoLogging
 
 import scala.util.{Failure, Try}
 
 class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodeParameters)
-                                          (implicit val hf: ThreadUnsafeHash[D]) extends VersionedAVLStorage[D] with ScryptoLogging {
+                                          (implicit val hf: CryptographicHash[D]) extends VersionedAVLStorage[D] with ScryptoLogging {
 
   private lazy val labelSize = nodeParameters.labelSize
 
@@ -32,7 +32,7 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
 
     top -> topHeight
   }.recoverWith { case e =>
-    log.warn("Failed to recover tree", e)
+    log.warn(s"Failed to recover tree for digest ${Base58.encode(version)}:", e)
     Failure(e)
   }
 
@@ -42,13 +42,37 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
 
   def leafsIterator() = store.getAll().filter { case (_, v) => v.data.head == LeafPrefix }
 
-  private def serializedVisitedNodes(node: ProverNodes[D]): Seq[(ByteArrayWrapper, ByteArrayWrapper)] = {
-    if (node.isNew) {
+  override def update[K <: Array[Byte], V <: Array[Byte]](prover: BatchAVLProver[D, _],
+                                                          additionalData: Seq[(K, V)]): Try[Unit] = Try {
+    val digestWrapper = ByteArrayWrapper(prover.digest)
+    val indexes = Seq(TopNodeKey -> nodeKey(prover.topNode),
+      TopNodeHeight -> ByteArrayWrapper(Ints.toByteArray(prover.rootNodeHeight)))
+    val toInsert = serializedVisitedNodes(prover.topNode, isTop = true)
+    val toRemove = prover.removedNodes().map(rn => ByteArrayWrapper(rn.label))
+    val toUpdate = indexes ++ toInsert
+    val toUpdateWrapped = additionalData.map { case (k, v) =>
+      ByteArrayWrapper(k) -> ByteArrayWrapper(v)
+    }
+    val toUpdateWithWrapped = toUpdate ++ toUpdateWrapped
+
+    log.info(s"Update storage to version $digestWrapper: ${toUpdateWithWrapped.size} elements to insert," +
+      s" ${toRemove.size} elements to remove")
+
+    store.update(digestWrapper, toRemove, toUpdateWithWrapped)
+  }.recoverWith { case e =>
+    log.warn("Failed to update tree", e)
+    Failure(e)
+  }
+
+  private def serializedVisitedNodes(node: ProverNodes[D],
+                                     isTop: Boolean): Seq[(ByteArrayWrapper, ByteArrayWrapper)] = {
+    // Should always serialize top node. It may not be new if it is the creation of the tree
+    if (node.isNew || isTop) {
       val pair: (ByteArrayWrapper, ByteArrayWrapper) = (nodeKey(node), ByteArrayWrapper(toBytes(node)))
       node match {
         case n: InternalProverNode[D] =>
-          val leftSubtree = serializedVisitedNodes(n.left)
-          val rightSubtree = serializedVisitedNodes(n.right)
+          val leftSubtree = serializedVisitedNodes(n.left, isTop = false)
+          val rightSubtree = serializedVisitedNodes(n.right, isTop = false)
           pair +: (leftSubtree ++ rightSubtree)
         case _: ProverLeaf[D] => Seq(pair)
       }
@@ -64,33 +88,6 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
       if (fixedSizeValueMode) LeafPrefix +: (n.key ++ n.value ++ n.nextLeafKey)
       else LeafPrefix +: (n.key ++ Ints.toByteArray(n.value.length) ++ n.value ++ n.nextLeafKey)
   }
-
-  override def update[K <: Array[Byte], V <: Array[Byte]](prover: BatchAVLProver[D, _],
-                                                          additionalData: Seq[(K, V)]): Try[Unit] = Try {
-    //TODO topNode is a special case?
-    val topNode = prover.topNode
-    val key = nodeKey(topNode)
-    val topNodePair = (key, ByteArrayWrapper(toBytes(topNode)))
-    val digestWrapper = ByteArrayWrapper(prover.digest)
-    val indexes = Seq(TopNodeKey -> key, TopNodeHeight -> ByteArrayWrapper(Ints.toByteArray(prover.rootNodeHeight)))
-    val toInsert = serializedVisitedNodes(topNode)
-    log.trace(s"Put(${store.lastVersionID}) ${toInsert.map(k => Base58.encode(k._1.data))}")
-    val toUpdate = if (!toInsert.map(_._1).contains(key)) {
-      topNodePair +: (indexes ++ toInsert)
-    } else indexes ++ toInsert
-
-    log.info(toUpdate.size + " elements to insert into db")
-
-    val toUpdateWrapped = additionalData.map{case (k, v) =>
-      ByteArrayWrapper(k) -> ByteArrayWrapper(v)
-    }
-
-    //TODO toRemove list?
-    store.update(digestWrapper, toRemove = Seq(), toUpdate ++ toUpdateWrapped)
-  }.recoverWith { case e =>
-    log.warn("Failed to update tree", e)
-    Failure(e)
-  }
 }
 
 
@@ -98,7 +95,7 @@ object VersionedIODBAVLStorage {
   val InternalNodePrefix: Byte = 0: Byte
   val LeafPrefix: Byte = 1: Byte
 
-  def fetch[D <: hash.Digest](key: ADKey)(implicit hf: ThreadUnsafeHash[D],
+  def fetch[D <: hash.Digest](key: ADKey)(implicit hf: CryptographicHash[D],
                                           store: Store,
                                           nodeParameters: NodeParameters): ProverNodes[D] = {
     val bytes = store(ByteArrayWrapper(key)).data

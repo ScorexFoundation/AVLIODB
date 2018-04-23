@@ -6,12 +6,15 @@ import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.crypto.authds.avltree.batch.helpers.TestHelper
-import scorex.crypto.authds.{ADKey, ADValue}
-import scorex.crypto.encode.Base58
-import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe, Digest32}
+import scorex.crypto.authds.{ADDigest, ADKey, ADValue}
+import scorex.crypto.encode.Base16
+import scorex.crypto.hash.{Blake2b256, Digest32}
 import scorex.utils.{Random => RandomBytes}
 
-import scala.util.{Random, Success, Try}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.util.{Success, Try}
 
 class VersionedIODBAVLStorageSpecification extends PropSpec
   with PropertyChecks
@@ -59,39 +62,86 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     prover.checkTree(true)
   }
 
-  //Test similar to blockchain workflow - generate proofs for some modifications, rollback, apply modifications
-  val blockchainWorkflowTest: PERSISTENT_PROVER => Unit = { prover: PERSISTENT_PROVER =>
-
-    val pairs = (1 to 10000).map(_ => kvGen.sample.get)
-    pairs.foreach(p => prover.performOneOperation(Insert(p._1, p._2)))
-    prover.generateProofAndUpdateStorage
-
-    forAll(Gen.choose(1, 10), Gen.choose(1, 10), Arbitrary.arbitrary[Long]) { (numRemoves, numInserts, seed) =>
-      val rnd = new Random(seed)
-      val startRoot = prover.digest
-
-      val inserts: Seq[Insert] = (0 until numInserts).flatMap(_ => kvGen.sample).map(kv => Insert(kv._1, kv._2))
-      val removes: Seq[Remove] = (0 until numRemoves).flatMap(i => prover.avlProver.randomWalk(rnd))
-        .groupBy(a => Base58.encode(a._1)).map(_._2.head).map(kv => Remove(kv._1)).toSeq
-      val mods = removes ++ inserts
-
-      mods.foldLeft[Try[Option[ADValue]]](Success(None)) { case (t, m) =>
+  // Read-only access to some elements in parallel should not affect modifications application
+  val parallelReadTest: PERSISTENT_PROVER => Unit = {
+    def performModifications(prover: PERSISTENT_PROVER, inserts: Seq[Insert]) = {
+      inserts.foldLeft[Try[Option[ADValue]]](Success(None)) { case (t, m) =>
         t.flatMap(_ => prover.performOneOperation(m))
       }.get
       prover.generateProofAndUpdateStorage()
-      prover.digest
-
-      prover.rollback(startRoot)
-      prover.digest shouldEqual startRoot
-
-      mods.foldLeft[Try[Option[ADValue]]](Success(None)) { case (t, m) =>
-        t.flatMap(_ => prover.performOneOperation(m))
-      }.get
-
-      prover.generateProofAndUpdateStorage()
-      prover.digest
     }
 
+    def startParallelReads(prover: PERSISTENT_PROVER) = {
+      Future {
+        def loop(): Unit = {
+          Thread.sleep(10)
+          Try(prover.digest)
+          loop()
+        }
+
+        loop()
+      }
+    }
+
+    prover: PERSISTENT_PROVER =>
+      val pairs = (1 to 10000).map(_ => kvGen.sample.get)
+      pairs.foreach(p => prover.performOneOperation(Insert(p._1, p._2)))
+      prover.generateProofAndUpdateStorage
+
+      val blocks: Seq[Seq[Insert]] = (0 until 10).map(_ => (0 until 10).flatMap(_ => kvGen.sample)
+        .map(kv => Insert(kv._1, kv._2)))
+
+      val parallelReadsFuture = startParallelReads(prover)
+      // apply blocks
+      blocks.foldLeft(prover.digest) { (startRoot, block) =>
+        prover.digest shouldEqual startRoot
+
+        performModifications(prover, block)
+        prover.rollback(startRoot)
+        Base16.encode(prover.digest) shouldBe Base16.encode(startRoot)
+
+        performModifications(prover, block)
+
+        prover.digest
+      }
+      Try(Await.result(parallelReadsFuture, 0.millis))
+  }
+
+
+  // Test similar to blockchain workflow - generate proofs for some modifications, rollback, apply modifications
+  val blockchainWorkflowTest: PERSISTENT_PROVER => Unit = { prover: PERSISTENT_PROVER =>
+    def metadata(modId: Array[Byte], stateRoot: ADDigest): Seq[(Array[Byte], Array[Byte])] = {
+      val idStateDigestIdxElem: (Array[Byte], Array[Byte]) = modId -> stateRoot
+      val stateDigestIdIdxElem = Blake2b256(stateRoot) -> modId
+      val bestVersion = Blake2b256("best state version") -> modId
+
+      Seq(idStateDigestIdxElem, stateDigestIdIdxElem, bestVersion)
+    }
+
+    def intToKey(i: Int, seed: Int = 0): ADKey = ADKey @@ Blake2b256(s"key-$i-$seed").take(KL)
+
+    def intToValue(i: Int, seed: Int = 0): ADValue = ADValue @@ Blake2b256(s"val-$i-$seed").take(VL)
+
+    val initialElementsSize = 10000
+
+    val initialElements = (0 until initialElementsSize).map(i => Insert(intToKey(i), intToValue(i)))
+    initialElements.foreach(op => prover.performOneOperation(op).get)
+    prover.generateProofAndUpdateStorage
+
+    val toInsert: Seq[Insert] = (0 until 1000) map { i =>
+      Insert(intToKey(i, 1), intToValue(i, 1))
+    }
+    val toRemove: Seq[Remove] = initialElements.take(1000).map(_.key).map(i => Remove(i))
+    val mods: Seq[Modification] = toInsert ++ toRemove
+    val nonMod = prover.avlProver.generateProofForOperations(mods).get
+
+    mods.foldLeft[Try[Option[ADValue]]](Success(None)) { case (t, m) =>
+      t.flatMap(_ => {
+        prover.performOneOperation(m)
+      })
+    }.get
+    val md = metadata(Blake2b256(nonMod._1 ++ nonMod._2), nonMod._2)
+    prover.generateProofAndUpdateStorage(md)
 
   }
 
@@ -184,12 +234,12 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     store.get(addInfo1._1) shouldBe defined
     store.get(addInfo2._1) shouldBe defined
 
-    storage.rollback(digest2)
+    storage.rollback(digest2).get
 
     store.get(addInfo1._1) shouldBe defined
     store.get(addInfo2._1) shouldBe None
 
-    storage.rollback(digest1)
+    storage.rollback(digest1).get
 
     store.get(addInfo1._1) shouldBe None
     store.get(addInfo2._1) shouldBe None
@@ -206,7 +256,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
         val store = createStore(0).ensuring(_.lastVersionID.isEmpty)
         val t = Try {
           var keys = IndexedSeq[ADKey]()
-          val p = new BatchAVLProver[Digest32, Blake2b256Unsafe](KL, Some(VL))
+          val p = new BatchAVLProver[Digest32, HF](KL, Some(VL))
 
           (1 to cnt) foreach { _ =>
             val key = ADKey @@ RandomBytes.randomBytes(KL)
@@ -255,14 +305,22 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
     * 2 QuickStore
     */
 
+  property("Persistence AVL batch prover (LSMStore backed) - parallel read-write") {
+    val prover = createPersistentProverWithLSM()
+    parallelReadTest(prover)
+  }
+
+
   property("Persistence AVL batch prover (LSMStore backed) - blockchain workflow") {
     val prover = createPersistentProverWithLSM()
     blockchainWorkflowTest(prover)
   }
 
   property("Persistence AVL batch prover (QuickStore backed) - blockchain workflow") {
-    val prover = createPersistentProverWithQuick()
-    blockchainWorkflowTest(prover)
+    quickTest {
+      val prover = createPersistentProverWithQuick()
+      blockchainWorkflowTest(prover)
+    }
   }
 
   property("Persistence AVL batch prover (LSMStore backed) - rollback") {
@@ -271,8 +329,10 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover (QuickStore backed) - rollback") {
-    val prover = createPersistentProverWithQuick()
-    rollbackTest(prover)
+    quickTest {
+      val prover = createPersistentProverWithQuick()
+      rollbackTest(prover)
+    }
   }
 
 
@@ -284,10 +344,12 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover (QuickStore backed) - basic test") {
-    val store = createQuickStore()
-    val storage = createVersionedStorage(store)
-    val prover = createPersistentProver(storage)
-    basicTest(prover, storage)
+    quickTest {
+      val store = createQuickStore()
+      val storage = createVersionedStorage(store)
+      val prover = createPersistentProver(storage)
+      basicTest(prover, storage)
+    }
   }
 
   property("Persistence AVL batch prover (LSMStore backed) - rollback version") {
@@ -298,10 +360,12 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover (QuickStore backed) - rollback version") {
-    val store = createQuickStore(1000)
-    val storage = createVersionedStorage(store)
-    val prover = createPersistentProver(storage)
-    basicTest(prover, storage)
+    quickTest {
+      val store = createQuickStore(1000)
+      val storage = createVersionedStorage(store)
+      val prover = createPersistentProver(storage)
+      basicTest(prover, storage)
+    }
   }
 
   property("Persistence AVL batch prover (LSM backed) - remove single random element from a large set") {
@@ -309,7 +373,9 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover (QuickStore backed) - remove single random element from a large set") {
-    removeFromLargerSetSingleRandomElementTest(createQuickStore _)
+    quickTest {
+      removeFromLargerSetSingleRandomElementTest(createQuickStore _)
+    }
   }
 
   property("Persistence AVL batch prover (LSM backed) - save additional info") {
@@ -317,7 +383,9 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   }
 
   property("Persistence AVL batch prover (Quick Store backed) - save additional info") {
-    testAddInfoSaving(createQuickStore _)
+    quickTest {
+      testAddInfoSaving(createQuickStore _)
+    }
   }
 
 }
