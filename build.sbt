@@ -4,7 +4,7 @@ name := "avl-iodb"
 
 lazy val commonSettings = Seq(
   organization := "org.scorexfoundation",
-  version := "0.2.13",
+  version := "0.2.14",
   scalaVersion := "2.12.4",
   licenses := Seq("CC0" -> url("https://creativecommons.org/publicdomain/zero/1.0/legalcode")),
   homepage := Some(url("https://github.com/ScorexFoundation/AVLIODB")),
