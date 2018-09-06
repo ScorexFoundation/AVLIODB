@@ -4,17 +4,19 @@
 dependencyOverrides in ThisBuild ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.3.0-alpha4",
   "ch.qos.logback" % "logback-core" % "1.3.0-alpha4",
-  "com.google.guava" % "guava" % "19.0",
+  "com.google.guava" % "guava" % "21.0",
   "com.sun.mail" % "javax.mail" % "1.6.0",
   "com.typesafe.scala-logging" % "scala-logging_2.12" % "3.9.0",
   "javax.activation" % "activation" % "1.1",
-  "javax.xml.bind" % "jaxb-api" % "2.3.0",
+  "javax.activation" % "javax.activation-api" % "1.2.0",
+  "javax.xml.bind" % "jaxb-api" % "2.4.0-b180830.0359",
   "net.jpountz.lz4" % "lz4" % "1.3.0",
-  "org.bouncycastle" % "bcprov-jdk15on" % "1.59",
+  "org.bouncycastle" % "bcprov-jdk15on" % "1.60",
   "org.rudogma" % "supertagged_2.12" % "1.4",
   "org.scorexfoundation" % "iodb_2.12" % "0.3.2",
-  "org.scorexfoundation" % "scrypto_2.12" % "2.1.2",
+  "org.scorexfoundation" % "scorex-util_2.12" % "0.1.1",
+  "org.scorexfoundation" % "scrypto_2.12" % "2.1.4",
   "org.slf4j" % "slf4j-api" % "1.8.0-beta1",
   "org.whispersystems" % "curve25519-java" % "0.5.0"
 )
-// LIBRARY_DEPENDENCIES_HASH 97d44538422393fbeb69a5e73ed7e9154167d4c8
+// LIBRARY_DEPENDENCIES_HASH eb11650fe0c4300c84ae3bc557945ff557102e38
