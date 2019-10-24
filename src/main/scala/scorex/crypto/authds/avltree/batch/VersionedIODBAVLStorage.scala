@@ -11,7 +11,21 @@ import scorex.utils.ScryptoLogging
 
 import scala.util.{Failure, Try}
 
-class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodeParameters)
+class
+
+
+
+
+
+
+
+
+
+
+
+
+
+VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodeParameters)
                                           (implicit val hf: CryptographicHash[D]) extends VersionedAVLStorage[D] with ScryptoLogging {
 
   private lazy val labelSize = nodeParameters.labelSize
@@ -55,8 +69,8 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
     }
     val toUpdateWithWrapped = toUpdate ++ toUpdateWrapped
 
-    log.info(s"Update storage to version $digestWrapper: ${toUpdateWithWrapped.size} elements to insert," +
-      s" ${toRemove.size} elements to remove")
+    //log.info(s"Update storage to version $digestWrapper: ${toUpdateWithWrapped.size} elements to insert," +
+    //  s" ${toRemove.size} elements to remove")
 
     store.update(digestWrapper, toRemove, toUpdateWithWrapped)
   }.recoverWith { case e =>

@@ -12,6 +12,9 @@ dependencyOverrides in ThisBuild ++= Seq(
   "javax.xml.bind" % "jaxb-api" % "2.4.0-b180830.0359",
   "net.jpountz.lz4" % "lz4" % "1.3.0",
   "org.bouncycastle" % "bcprov-jdk15on" % "1.60",
+  "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8",
+  "org.iq80.leveldb" % "leveldb" % "0.12",
+  "org.iq80.leveldb" % "leveldb-api" % "0.12",
   "org.rudogma" % "supertagged_2.12" % "1.4",
   "org.scorexfoundation" % "iodb_2.12" % "0.3.2",
   "org.scorexfoundation" % "scorex-util_2.12" % "0.1.1",
@@ -19,4 +22,4 @@ dependencyOverrides in ThisBuild ++= Seq(
   "org.slf4j" % "slf4j-api" % "1.8.0-beta1",
   "org.whispersystems" % "curve25519-java" % "0.5.0"
 )
-// LIBRARY_DEPENDENCIES_HASH eb11650fe0c4300c84ae3bc557945ff557102e38
+// LIBRARY_DEPENDENCIES_HASH ecb6f25bb75fef1b143d6fc1a0f3eb013fa5cd2e

@@ -20,7 +20,8 @@ object AVLTreeBatchPerformance extends {
 
     val logger = LoggerFactory.getLogger("TEST")
     var prover: Prover = _
-    var store: LSMStore = _
+	//var store: LSMStore = _
+    var store: LDBVersionedStore = _
     var storage: VersionedIODBAVLStorage[Digest32] = _
     var operations: Array[Operation] = _
 

@@ -6,6 +6,7 @@ import scorex.crypto.authds.{ADDigest, SerializedAdProof}
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.{Blake2b256, Digest32}
 import scorex.utils.ScryptoLogging
+import scorex.db.LDBVersionedStore
 
 trait TestHelper extends FileHelper with ScryptoLogging {
 
@@ -33,7 +34,8 @@ trait TestHelper extends FileHelper with ScryptoLogging {
 
   def createLSMStore(keepVersions: Int = 0): Store = {
     val dir = getRandomTempDir
-    new LSMStore(dir, keepVersions = keepVersions)
+    new LDBVersionedStore(dir, keepVersions = keepVersions)
+	//    new LSMStore(dir, keepVersions = keepVersions)
   }
 
   def createQuickStore(keepVersions: Int = 0): Store = {

@@ -38,9 +38,14 @@ libraryDependencies ++= Seq(
   "com.storm-enroute" %% "scalameter" % "0.9" % "test"
 )
 
+libraryDependencies ++= Seq(
+  ("org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8").exclude("org.iq80.leveldb", "leveldb"),
+  "org.iq80.leveldb" % "leveldb" % "0.12"
+)
+
 testOptions in Test := Seq(Tests.Filter(t => !t.matches(".*Benchmark$")))
 
-scalacOptions ++= Seq("-Xdisable-assertions")
+//scalacOptions ++= Seq("-Xdisable-assertions")
 
 publishMavenStyle := true
 
