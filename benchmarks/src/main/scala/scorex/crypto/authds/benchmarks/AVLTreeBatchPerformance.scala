@@ -7,6 +7,7 @@ import org.openjdk.jmh.annotations._
 import org.slf4j.LoggerFactory
 import scorex.crypto.authds.avltree.batch.{Operation, PersistentBatchAVLProver, VersionedIODBAVLStorage}
 import scorex.crypto.hash.{Blake2b256, Digest32}
+import scorex.db.LDBVersionedStore
 
 object AVLTreeBatchPerformance extends {
 
@@ -35,7 +36,7 @@ object AVLTreeBatchPerformance extends {
 
     @TearDown(Level.Iteration)
     def down: Unit = {
-      store.executor.asInstanceOf[ThreadPoolExecutor].shutdownNow()
+      //store.executor.asInstanceOf[ThreadPoolExecutor].shutdownNow()
       prover = null
       operations = Array.empty
     }

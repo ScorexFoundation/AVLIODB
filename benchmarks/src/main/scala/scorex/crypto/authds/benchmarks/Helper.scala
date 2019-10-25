@@ -4,7 +4,8 @@ import com.google.common.primitives.Longs
 import io.iohk.iodb.{FileAccess, LSMStore}
 import scorex.crypto.authds.avltree.batch._
 import scorex.crypto.authds.{ADKey, ADValue}
-import scorex.crypto.hash.{Blake2b256, Digest32}
+import scorex.crypto.hash.{Blake2b256, Blake2b256Unsafe, Digest32}
+import scorex.db.LDBVersionedStore
 import scorex.utils.Random
 
 object Helper {
@@ -33,7 +34,7 @@ object Helper {
     inserts ++ updates
   }
 
-  def getPersistentProverWithLSMStore(keepVersions: Int, baseOperationsCount: Int = 0): (Prover, LSMStore, VersionedIODBAVLStorage[Digest32]) = {
+  def getPersistentProverWithLSMStore(keepVersions: Int, baseOperationsCount: Int = 0): (Prover, LDBVersionedStore, VersionedIODBAVLStorage[Digest32]) = {
     val dir = java.nio.file.Files.createTempDirectory("bench_testing_" + scala.util.Random.alphanumeric.take(15)).toFile
     dir.deleteOnExit()
     //val store = new LSMStore(dir, keepVersions = keepVersions, fileAccess = FileAccess.UNSAFE)
@@ -65,8 +66,8 @@ object Helper {
     }
   }
 
-  def getProver(baseOperationsCount: Int = 0): BatchAVLProver[Digest32, Blake2b256Unsafe] = {
-    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](kl, Some(vl))
+  def getProver(baseOperationsCount: Int = 0): BatchAVLProver[Digest32, HF] = {
+    val prover = new BatchAVLProver[Digest32, HF](kl, Some(vl))
     if (baseOperationsCount > 0) {
       val step = 5000
       Range(0, baseOperationsCount, step).foreach { v =>

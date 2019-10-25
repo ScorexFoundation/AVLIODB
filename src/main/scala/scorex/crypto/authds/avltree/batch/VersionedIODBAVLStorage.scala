@@ -11,21 +11,7 @@ import scorex.utils.ScryptoLogging
 
 import scala.util.{Failure, Try}
 
-class
-
-
-
-
-
-
-
-
-
-
-
-
-
-VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodeParameters)
+class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodeParameters)
                                           (implicit val hf: CryptographicHash[D]) extends VersionedAVLStorage[D] with ScryptoLogging {
 
   private lazy val labelSize = nodeParameters.labelSize

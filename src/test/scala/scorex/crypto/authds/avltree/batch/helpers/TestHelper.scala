@@ -32,7 +32,7 @@ trait TestHelper extends FileHelper with ScryptoLogging {
 
   case class Data(p: PERSISTENT_PROVER, s: STORAGE)
 
-  def createLSMStore(keepVersions: Int = 0): Store = {
+  def createLSMStore(keepVersions: Int = 10): Store = {
     val dir = getRandomTempDir
     new LDBVersionedStore(dir, keepVersions = keepVersions)
 	//    new LSMStore(dir, keepVersions = keepVersions)
@@ -53,7 +53,7 @@ trait TestHelper extends FileHelper with ScryptoLogging {
   def createPersistentProver(storage: STORAGE, prover: PROVER): PERSISTENT_PROVER =
     PersistentBatchAVLProver.create[D, HF](prover, storage, paranoidChecks = true).get
 
-  def createPersistentProverWithLSM(keepVersions: Int = 0): PERSISTENT_PROVER = {
+  def createPersistentProverWithLSM(keepVersions: Int = 10): PERSISTENT_PROVER = {
     val store = createLSMStore(keepVersions)
     val storage = createVersionedStorage(store)
     createPersistentProver(storage)

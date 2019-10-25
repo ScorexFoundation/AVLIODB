@@ -16,7 +16,7 @@ class AVLStorageWithPersistentProverSpec extends PropSpec with Matchers {
   implicit val hf: HF = Blake2b256
 
   //val stateStore: Store = new LSMStore(getRandomTempDir)
-  val stateStore: Store = new LDBVersionedStore(getRandomTempDir)
+  val stateStore: Store = new LDBVersionedStore(getRandomTempDir, 10)
 
   private lazy val np =
     NodeParameters(keySize = 32, valueSize = None, labelSize = 32)
